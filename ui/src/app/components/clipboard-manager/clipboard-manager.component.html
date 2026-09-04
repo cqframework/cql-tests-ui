@@ -13,7 +13,7 @@
           } @else if (capabilityError()) {
           <div class="alert alert-warning mb-0" role="alert">
             <i class="bi bi-exclamation-triangle me-2"></i>{{ capabilityError() }}
-            <a routerLink="/settings" [queryParams]="{ section: 'environments' }" class="alert-link ms-2">Settings</a>
+            <a routerLink="/settings/environments" class="alert-link ms-2">Settings</a>
           </div>
           } @else {
           <form (ngSubmit)="runSearch()">

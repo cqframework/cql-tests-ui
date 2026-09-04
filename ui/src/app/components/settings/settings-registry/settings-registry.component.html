@@ -1,0 +1,9 @@
+<h6 class="card-title mb-3"><span class="bi bi-box-seam me-2"></span>FHIR Package Registry</h6>
+<div class="form-floating mb-3">
+  <input type="url" class="form-control" id="fhirPackageRegistryBaseUrl" name="fhirPackageRegistryBaseUrl"
+    [ngModel]="settingsService.settings().fhirPackageRegistryBaseUrl"
+    (ngModelChange)="settingsService.patchSettings({ fhirPackageRegistryBaseUrl: $event })"
+    [placeholder]="settingsService.getDefaultFhirPackageRegistryBaseUrl()">
+  <label for="fhirPackageRegistryBaseUrl">Registry base URL (Optional Override)</label>
+</div>
+<small class="form-text text-muted d-block mb-3">Base URL for the <a href="https://build.fhir.org/packages.html" target="_blank" rel="noopener noreferrer">FHIR NPM package registry</a> (default <code>https://packages.fhir.org</code>).</small>

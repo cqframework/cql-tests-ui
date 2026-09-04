@@ -182,7 +182,7 @@ export class FhirTabComponent {
   }
 
   onNavigateToSettings(): void {
-    this.router.navigate(['/settings'], { queryParams: { section: 'environments' } });
+    this.router.navigate(['/settings/environments']);
   }
 
   libraryAsString(): string {

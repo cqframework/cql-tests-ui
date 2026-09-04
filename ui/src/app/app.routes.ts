@@ -46,6 +46,58 @@ export const routes: Routes = [
         path: 'settings',
         loadComponent: () =>
           import('./components/settings/settings.component').then((m) => m.SettingsComponent),
+        children: [
+          { path: '', redirectTo: 'environments', pathMatch: 'full' },
+          {
+            path: 'environments',
+            loadComponent: () =>
+              import('./components/settings/settings-environments/settings-environments.component').then(
+                (m) => m.SettingsEnvironmentsComponent
+              ),
+          },
+          {
+            path: 'advanced',
+            loadComponent: () =>
+              import('./components/settings/settings-advanced/settings-advanced.component').then(
+                (m) => m.SettingsAdvancedComponent
+              ),
+          },
+          {
+            path: 'runner',
+            loadComponent: () =>
+              import('./components/settings/settings-runner/settings-runner.component').then(
+                (m) => m.SettingsRunnerComponent
+              ),
+          },
+          {
+            path: 'registry',
+            loadComponent: () =>
+              import('./components/settings/settings-registry/settings-registry.component').then(
+                (m) => m.SettingsRegistryComponent
+              ),
+          },
+          {
+            path: 'vsac',
+            loadComponent: () =>
+              import('./components/settings/settings-vsac/settings-vsac.component').then(
+                (m) => m.SettingsVsacComponent
+              ),
+          },
+          {
+            path: 'ai',
+            loadComponent: () =>
+              import('./components/settings/settings-ai/settings-ai.component').then(
+                (m) => m.SettingsAiComponent
+              ),
+          },
+          {
+            path: 'server',
+            loadComponent: () =>
+              import('./components/settings/settings-server/settings-server.component').then(
+                (m) => m.SettingsServerComponent
+              ),
+          },
+        ],
       },
       {
         path: 'examples',

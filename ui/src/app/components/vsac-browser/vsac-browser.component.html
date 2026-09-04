@@ -6,7 +6,7 @@
 
   @if (!settingsService.vsacHasApiCredentials()) {
   <div class="alert alert-warning" role="alert">
-    Add your UMLS API key under <a routerLink="/settings" [queryParams]="{ section: 'vsac' }">Settings</a>.
+    Add your UMLS API key under <a routerLink="/settings/vsac">Settings</a>.
     VSAC calls go through CQL Studio Server at <code>{{ settingsService.getEffectiveServerBaseUrl() }}</code>.
   </div>
   }

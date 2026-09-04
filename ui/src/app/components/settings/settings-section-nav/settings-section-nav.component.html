@@ -1,11 +1,11 @@
 <div class="list-group" id="settings-section-nav">
   @for (section of sections; track section.id) {
-    <button type="button" class="list-group-item list-group-item-action d-flex align-items-center"
+    <a class="list-group-item list-group-item-action d-flex align-items-center"
       [id]="'settings-section-' + section.id"
-      [class.active]="activeSection() === section.id"
-      (click)="select(section.id)">
+      [routerLink]="['/settings', section.id]"
+      routerLinkActive="active">
       <span class="bi me-2" [class]="section.icon"></span>
       {{ section.label }}
-    </button>
+    </a>
   }
 </div>

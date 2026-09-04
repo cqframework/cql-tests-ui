@@ -1,0 +1,26 @@
+<h6 class="card-title mb-3"><span class="bi bi-play-circle me-2"></span>CQL Tests Runner &amp; Results</h6>
+<div class="form-floating mb-3">
+  <input type="url" class="form-control" id="runnerApiBaseUrl" name="runnerApiBaseUrl"
+    [ngModel]="settingsService.settings().runnerApiBaseUrl"
+    (ngModelChange)="settingsService.patchSettings({ runnerApiBaseUrl: $event })"
+    [placeholder]="settingsService.getDefaultRunnerApiBaseUrl()">
+  <label for="runnerApiBaseUrl">Runner API Base URL</label>
+</div>
+<small class="form-text text-muted d-block mb-3">Base URL for the CQL Tests Runner API.</small>
+<div class="form-floating mb-3">
+  <input type="url" class="form-control" id="runnerFhirBaseUrl" name="runnerFhirBaseUrl"
+    [ngModel]="settingsService.settings().runnerFhirBaseUrl"
+    (ngModelChange)="settingsService.patchSettings({ runnerFhirBaseUrl: $event })"
+    [placeholder]="settingsService.getEffectiveRunnerFhirBaseUrl()">
+  <label for="runnerFhirBaseUrl">Runner FHIR Base URL</label>
+</div>
+<small class="form-text text-muted d-block mb-3">Base FHIR URL to pass to the CQL Tests Runner; must be reachable from the runner process. Falls back to <code>CQL_STUDIO_RUNNER_FHIR_BASE_URL</code>, then the active environment data endpoint.</small>
+<div class="form-floating mb-3">
+  <input type="url" class="form-control" id="defaultTestResultsIndexUrl"
+    name="defaultTestResultsIndexUrl"
+    [ngModel]="settingsService.settings().defaultTestResultsIndexUrl"
+    (ngModelChange)="settingsService.patchSettings({ defaultTestResultsIndexUrl: $event })"
+    [placeholder]="settingsService.getDefaultTestResultsIndexUrl()">
+  <label for="defaultTestResultsIndexUrl">Default Test Results Index URL</label>
+</div>
+<small class="form-text text-muted d-block mb-3">Default URL for loading test results index files.</small>

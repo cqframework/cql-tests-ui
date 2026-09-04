@@ -1,0 +1,23 @@
+<h6 class="card-title mb-3"><span class="bi bi-cloud-download me-2"></span>U.S. Value Set Authority Center (VSAC)</h6>
+<p class="small text-muted">National Library of Medicine (NLM) Value Set Authority Center (VSAC) requests from this app are sent through your <strong>CQL Studio Server</strong> instance due to NLM not permitting direct browser calls. Requires a free <a href="https://uts.nlm.nih.gov/" target="_blank" rel="noopener noreferrer">UMLS</a> account and API key.</p>
+<div class="form-floating mb-3">
+  <input type="password" class="form-control" id="vsacApiPassword" name="vsacApiPassword"
+    [ngModel]="settingsService.settings().vsacApiPassword"
+    (ngModelChange)="settingsService.patchSettings({ vsacApiPassword: $event })"
+    placeholder="UMLS API Key">
+  <label for="vsacApiPassword">UMLS API Key</label>
+</div>
+<div class="form-floating mb-3">
+  <input type="text" class="form-control" id="vsacApiUsername" name="vsacApiUsername"
+    [ngModel]="settingsService.settings().vsacApiUsername"
+    (ngModelChange)="settingsService.patchSettings({ vsacApiUsername: $event })"
+    [placeholder]="settingsService.getDefaultVsacApiUsername()">
+  <label for="vsacApiUsername">VSAC Basic Auth Username</label>
+</div>
+<div class="form-floating mb-3">
+  <input type="url" class="form-control" id="vsacFhirBaseUrl" name="vsacFhirBaseUrl"
+    [ngModel]="settingsService.settings().vsacFhirBaseUrl"
+    (ngModelChange)="settingsService.patchSettings({ vsacFhirBaseUrl: $event })"
+    [placeholder]="settingsService.getDefaultVsacFhirBaseUrl()">
+  <label for="vsacFhirBaseUrl">VSAC FHIR base URL (optional override)</label>
+</div>

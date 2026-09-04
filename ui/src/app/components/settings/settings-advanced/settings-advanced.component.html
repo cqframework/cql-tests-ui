@@ -1,0 +1,43 @@
+<input #importFileInput type="file" accept=".json" class="d-none" (change)="onImportFile($event)" />
+
+<h6 class="card-title mb-3"><span class="bi bi-sliders me-2"></span>Advanced &amp; Preferences</h6>
+<div class="form-check form-switch ms-1">
+  <input id="experimental_switch" class="form-check-input" type="checkbox" name="experimental_switch"
+    [ngModel]="settingsService.settings().experimental"
+    (ngModelChange)="settingsService.patchSettings({ experimental: $event })" />
+  <label class="form-check-label" for="experimental_switch"><span class="bi bi-exclamation-diamond"></span> Experimental Features</label>
+  <br />
+  <small class="form-text text-muted d-block mt-1">This is used for testing upcoming features and may break existing functionality. You probably don't want to use this!</small>
+</div>
+<div class="form-check form-switch mt-3 ms-1">
+  <input id="developer_switch" class="form-check-input" type="checkbox" name="developer_switch"
+    [ngModel]="settingsService.settings().developer"
+    (ngModelChange)="settingsService.patchSettings({ developer: $event })" />
+  <label class="form-check-label" for="developer_switch"><span class="bi bi-code"></span> Developer Mode</label>
+  <br />
+  <small class="form-text text-muted d-block mt-1">Enable more advanced technical settings and messages. This is mostly for development.</small>
+</div>
+<div class="form-floating mb-3 mt-3">
+  <select class="form-select" id="theme" name="theme"
+    [ngModel]="settingsService.settings().theme_preferred"
+    (ngModelChange)="onThemePreferredChange($event)">
+    <option [value]="themeTypes().AUTOMATIC">Automatic</option>
+    <option [value]="themeTypes().LIGHT">Light</option>
+    <option [value]="themeTypes().DARK">Dark</option>
+  </select>
+  <label for="theme">Theme</label>
+</div>
+<div class="form-check form-switch mt-3 ms-1">
+  <input id="validate_schema_switch" class="form-check-input" type="checkbox"
+    name="validate_schema_switch"
+    [ngModel]="settingsService.settings().validateSchema"
+    (ngModelChange)="onValidateSchemaChange($event)" />
+  <label class="form-check-label" for="validate_schema_switch"><span class="bi bi-check-circle"></span> Validate Against Schema</label>
+  <br />
+  <small class="form-text text-muted d-block mt-1">Enable validation of data files against the JSON schema prior to loading.</small>
+</div>
+
+<hr class="my-4">
+<h6 class="mb-3" id="settings-advanced-actions-heading">Import &amp; export</h6>
+<app-settings-actions variant="toolbar" (resetClipboard)="onResetClipboard()"
+  (exportSettings)="onExportSettings()" (importSettings)="onImportSettings()" />

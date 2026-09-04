@@ -1,0 +1,16 @@
+<h6 class="card-title mb-3"><span class="bi bi-server me-2"></span>CQL Studio Server</h6>
+<div class="form-floating mb-3">
+  <input type="url" class="form-control" id="serverBaseUrl" name="serverBaseUrl"
+    [ngModel]="settingsService.getEffectiveServerBaseUrl()"
+    readonly
+    [placeholder]="settingsService.getDefaultServerBaseUrl() || 'CQL_STUDIO_SERVER_BASE_URL'">
+  <label for="serverBaseUrl">Server Base URL</label>
+</div>
+<small class="form-text text-muted d-block mb-3">Must be at startup via the <code>CQL_STUDIO_SERVER_BASE_URL</code> environment variable.</small>
+<div class="form-floating mb-3">
+  <input type="url" class="form-control" id="searxngBaseUrl" name="searxngBaseUrl"
+    [ngModel]="settingsService.settings().searxngBaseUrl"
+    (ngModelChange)="settingsService.patchSettings({ searxngBaseUrl: $event })"
+    [placeholder]="settingsService.getDefaultSearxngBaseUrl() || 'SearXNG Base URL (Optional)'">
+  <label for="searxngBaseUrl">SearXNG Base URL (Optional)</label>
+</div>

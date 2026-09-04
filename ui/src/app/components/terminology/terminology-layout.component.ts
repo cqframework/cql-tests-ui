@@ -107,6 +107,6 @@ export class TerminologyLayoutComponent implements OnInit {
   }
 
   navigateToSettings(): void {
-    this.router.navigate(['/settings'], { queryParams: { section: 'environments' } });
+    this.router.navigate(['/settings/environments']);
   }
 }

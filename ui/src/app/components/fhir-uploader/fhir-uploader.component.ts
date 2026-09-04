@@ -142,7 +142,7 @@ export class FhirUploaderComponent implements AfterViewInit {
 
   navigateToSettings(event: Event): void {
     event.preventDefault();
-    this.router.navigate(['/settings'], { queryParams: { section: 'environments' } });
+    this.router.navigate(['/settings/environments']);
   }
 
   ngAfterViewInit(): void {
