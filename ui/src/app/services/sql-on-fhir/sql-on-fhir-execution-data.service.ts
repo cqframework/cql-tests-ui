@@ -23,15 +23,19 @@ import {
   resourcesFromExecutionBundle,
 } from './sql-on-fhir-bundle-publish.lib';
 import {
-  isEverythingOperationFailure,
+  computeFetchWorkUnits,
+  emptyPatientFetchProgress,
   mapWithConcurrency,
   nonPatientResourceTypes,
   PATIENT_COMPARTMENT_FETCH_CONCURRENCY,
   PATIENT_COMPARTMENT_SEARCH_PAGE_SIZE,
   patientReference,
+  patientSearchParamForResourceType,
+  type PatientFetchProgress,
 } from './sql-on-fhir-patient-fetch.lib';
 
 export type { ExecutionSeedData } from './sql-on-fhir-execution-data.types';
+export type { PatientFetchProgress } from './sql-on-fhir-patient-fetch.lib';
 export {
   bundleHasClinicalResources,
   mergeBundles,
@@ -43,6 +47,7 @@ export type { BundleResourceSummary } from './sql-on-fhir-execution-data.lib';
 
 export interface BuildBundleFromPatientsOptions {
   resourceTypes: string[];
+  onProgress?: (progress: PatientFetchProgress) => void;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -63,10 +68,20 @@ export class SqlOnFhirExecutionDataService {
     }
     const resourceTypes = [...new Set(options.resourceTypes.filter(t => t.trim()))].sort();
     const nonPatientTypes = nonPatientResourceTypes(resourceTypes);
+    const workUnitsTotal = computeFetchWorkUnits(withIds.length, resourceTypes);
+    const state = emptyPatientFetchProgress(withIds.length, workUnitsTotal);
+    const emit = () => {
+      options.onProgress?.({
+        ...state,
+        resourcesByType: { ...state.resourcesByType },
+      });
+    };
+    emit();
+
     const bundles = await mapWithConcurrency(
       withIds,
       PATIENT_COMPARTMENT_FETCH_CONCURRENCY,
-      p => this.fetchPatientCompartment(p.id!, resourceTypes, nonPatientTypes),
+      p => this.fetchPatientCompartmentViaSearch(p, nonPatientTypes, state, emit),
     );
     return mergeBundles(bundles);
   }
@@ -139,11 +154,19 @@ export class SqlOnFhirExecutionDataService {
     await firstValueFrom(this.fhirClient.postBundle(transaction));
   }
 
-  private async fetchPatientCompartment(
-    patientId: string,
-    resourceTypes: string[],
+  private async fetchPatientCompartmentViaSearch(
+    patientStub: Patient,
     nonPatientTypes: string[],
+    state: PatientFetchProgress,
+    emit: () => void,
   ): Promise<Bundle> {
+    const patientId = patientStub.id!;
+    const label = patientDisplayLabel(patientStub);
+    state.currentPatientId = patientId;
+    state.currentPatientLabel = label;
+    state.currentResourceType = 'Patient';
+    emit();
+
     const patient = await firstValueFrom(this.patientService.get(patientId));
     const bundles: Bundle[] = [
       {
@@ -152,50 +175,53 @@ export class SqlOnFhirExecutionDataService {
         entry: [{ resource: patient }],
       },
     ];
-    if (nonPatientTypes.length === 0) {
-      return mergeBundles(bundles);
-    }
-    try {
-      const everything = await firstValueFrom(
-        this.patientService.getEverything(patientId, { types: nonPatientTypes }),
-      );
-      bundles.push(everything);
-      return mergeBundles(bundles);
-    } catch (err: unknown) {
-      if (!isEverythingOperationFailure(err)) {
-        throw err;
-      }
-      return this.fetchPatientCompartmentViaSearch(patientId, resourceTypes, patient);
-    }
-  }
+    state.resourcesByType['Patient'] = (state.resourcesByType['Patient'] ?? 0) + 1;
+    state.totalResources += 1;
+    state.workUnitsCompleted += 1;
+    state.currentPatientId = patientId;
+    state.currentPatientLabel = patientDisplayLabel(patient) || label;
+    state.currentResourceType = nonPatientTypes[0] ?? null;
+    emit();
 
-  private async fetchPatientCompartmentViaSearch(
-    patientId: string,
-    resourceTypes: string[],
-    patient: Patient,
-  ): Promise<Bundle> {
-    const bundles: Bundle[] = [
-      {
-        resourceType: 'Bundle',
-        type: 'collection',
-        entry: [{ resource: patient }],
-      },
-    ];
     const ref = patientReference(patientId);
-    const typesToSearch = nonPatientResourceTypes(resourceTypes);
-    for (const resourceType of typesToSearch) {
+    for (const resourceType of nonPatientTypes) {
+      state.currentPatientId = patientId;
+      state.currentPatientLabel = patientDisplayLabel(patient) || label;
+      state.currentResourceType = resourceType;
+      emit();
+      const searchParam = patientSearchParamForResourceType(resourceType);
       const initial = await firstValueFrom(
         this.fhirSearch.search(
           resourceType,
-          { patient: ref },
+          { [searchParam]: ref },
           { count: PATIENT_COMPARTMENT_SEARCH_PAGE_SIZE },
         ),
       );
-      const full = await fetchAllBundlePages(initial, url =>
-        firstValueFrom(this.fhirSearch.fetchFromUrl(url)),
+      const full = await fetchAllBundlePages(
+        initial,
+        url => firstValueFrom(this.fhirSearch.fetchFromUrl(url)),
+        page => {
+          const count = page.entry?.filter(e => e.resource).length ?? 0;
+          if (count > 0) {
+            state.resourcesByType[resourceType] = (state.resourcesByType[resourceType] ?? 0) + count;
+            state.totalResources += count;
+            emit();
+          }
+        },
       );
       bundles.push(full);
+      state.workUnitsCompleted += 1;
+      state.currentPatientId = patientId;
+      state.currentPatientLabel = patientDisplayLabel(patient) || label;
+      state.currentResourceType = resourceType;
+      emit();
     }
+
+    state.patientsCompleted += 1;
+    state.currentPatientId = patientId;
+    state.currentPatientLabel = patientDisplayLabel(patient) || label;
+    state.currentResourceType = null;
+    emit();
     return mergeBundles(bundles);
   }
 
@@ -244,4 +270,14 @@ export class SqlOnFhirExecutionDataService {
     }
     return this.settingsService.getEffectiveDataEndpointAddress().trim().replace(/\/+$/, '');
   }
+}
+
+function patientDisplayLabel(patient: Patient): string {
+  const name = patient.name?.[0];
+  if (name?.text) {
+    return name.text;
+  }
+  const given = name?.given?.join(' ') ?? '';
+  const family = name?.family ?? '';
+  return `${given} ${family}`.trim() || patient.id || 'Patient';
 }

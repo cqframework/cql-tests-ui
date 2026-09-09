@@ -1,6 +1,6 @@
 {
   "name": "@cql-studio/server",
-  "version": "2.2.2",
+  "version": "0.0.0",
   "description": "CQL Studio backend services and MCP tool orchestration, provided as an Express server using ESM modules",
   "type": "module",
   "private": true,
@@ -25,7 +25,7 @@
   "author": "Preston Lee",
   "license": "Apache-2.0",
   "dependencies": {
-    "@cqframework/cql": "^4.0.0-beta.1",
+    "@cqframework/cql": "^5.2.0",
     "@cql-studio/core": "file:../core",
     "@lhncbc/ucum-lhc": "^7.1.9",
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -37,7 +37,7 @@
     "express": "^5.2.1",
     "fast-xml-parser": "^5.11.1",
     "node-fetch": "^3.3.2",
-    "openid-client": "^6.8.7",
+    "openid-client": "^6.8.8",
     "pg": "^8.23.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
@@ -50,7 +50,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/node": "^26.4.1",
+    "@types/node": "^26.5.0",
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"

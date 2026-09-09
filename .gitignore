@@ -62,3 +62,5 @@ ehthumbs.db
 # Dynamic UI config
 ui/public/configuration.js
 public/configuration.js
+
+private/

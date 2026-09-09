@@ -46,6 +46,11 @@
             </li>
             @if (settingsService.settings().experimental) {
             <li>
+              <a id="sql-nav-link" class="dropdown-item" routerLink="/sql" routerLinkActive="active">
+                <i class="bi bi-database me-2"></i>SQL on FHIR
+              </a>
+            </li>
+            <li>
               <a id="measure-editor-nav-link" class="dropdown-item" routerLink="/measures" routerLinkActive="active">
                 <i class="bi bi-bar-chart me-2"></i>Measure Editor
               </a>
@@ -61,13 +66,7 @@
                 <i class="bi bi-diagram-3 me-2"></i>Guidelines
               </a>
             </li>
-            }
-            @if (settingsService.settings().experimental && settingsService.settings().developer) {
-            <li>
-              <a id="sql-nav-link" class="dropdown-item" routerLink="/sql" routerLinkActive="active">
-                <i class="bi bi-database me-2"></i>SQL on FHIR
-              </a>
-            </li>
+
             }
           </ul>
         </li>

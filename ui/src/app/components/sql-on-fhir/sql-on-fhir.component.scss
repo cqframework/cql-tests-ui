@@ -1,25 +1,23 @@
-.sql-workflow-nav .sql-workflow-list .sql-workflow-step:not(:disabled).active {
-  font-weight: 600;
-}
+// Connector rail + number size only; step chrome uses Bootstrap utilities in the template.
+.sql-workflow-rail {
+  position: relative;
+  width: 1.5rem;
 
-.sql-workflow-nav .sql-workflow-list .sql-workflow-step:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.sql-patient-results {
-  max-height: 14rem;
-  overflow-y: auto;
-}
-
-.sql-patient-row {
-  cursor: pointer;
-
-  &:hover {
-    background-color: var(--bs-secondary-bg);
+  .sql-workflow-item:not(:last-child) &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 1.75rem; // btn-sm pad-y + circle
+    bottom: -0.75rem; // gap-2 + next btn-sm pad-y
+    width: 2px;
+    transform: translateX(-50%);
+    background-color: var(--bs-border-color);
   }
+}
 
-  &:last-child {
-    border-bottom: 0 !important;
-  }
+.sql-workflow-index {
+  position: relative;
+  z-index: 1;
+  width: 1.5rem;
+  height: 1.5rem;
 }

@@ -99,6 +99,87 @@ CREATE TABLE IF NOT EXISTS condition_view (
   category_code TEXT
 );
 
+CREATE TABLE IF NOT EXISTS medication_request_view (
+  id TEXT PRIMARY KEY,
+  subject_id TEXT,
+  status TEXT,
+  intent TEXT,
+  medication_code TEXT,
+  medication_system TEXT,
+  medication_display TEXT,
+  authored_on TIMESTAMPTZ,
+  encounter_id TEXT,
+  requester_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS diagnostic_report_view (
+  id TEXT PRIMARY KEY,
+  subject_id TEXT,
+  status TEXT,
+  code TEXT,
+  code_system TEXT,
+  effective_datetime TIMESTAMPTZ,
+  issued TIMESTAMPTZ,
+  encounter_id TEXT,
+  category_code TEXT
+);
+
+CREATE TABLE IF NOT EXISTS coverage_view (
+  id TEXT PRIMARY KEY,
+  beneficiary_id TEXT,
+  status TEXT,
+  type_code TEXT,
+  payer_id TEXT,
+  period_start TIMESTAMPTZ,
+  period_end TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS allergy_intolerance_view (
+  id TEXT PRIMARY KEY,
+  patient_id TEXT,
+  clinical_status TEXT,
+  verification_status TEXT,
+  code TEXT,
+  code_system TEXT,
+  onset_datetime TIMESTAMPTZ,
+  recorded_date TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS immunization_view (
+  id TEXT PRIMARY KEY,
+  patient_id TEXT,
+  status TEXT,
+  vaccine_code TEXT,
+  vaccine_system TEXT,
+  occurrence_datetime TIMESTAMPTZ,
+  primary_source BOOLEAN,
+  encounter_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS service_request_view (
+  id TEXT PRIMARY KEY,
+  subject_id TEXT,
+  status TEXT,
+  intent TEXT,
+  category_code TEXT,
+  category_system TEXT,
+  code TEXT,
+  code_system TEXT,
+  code_display TEXT,
+  code_text TEXT,
+  occurrence_datetime TIMESTAMPTZ,
+  occurrence_start TIMESTAMPTZ,
+  occurrence_end TIMESTAMPTZ,
+  authored_on TIMESTAMPTZ,
+  requester_id TEXT,
+  performer_id TEXT,
+  reason_code TEXT,
+  do_not_perform BOOLEAN,
+  priority TEXT,
+  encounter_id TEXT,
+  insurance_id TEXT
+);
+
 CREATE TABLE IF NOT EXISTS value_set_expansion (
   value_set_id TEXT,
   code TEXT,
@@ -115,6 +196,12 @@ const FLAT_TABLE_NAMES = [
   'observation_view',
   'procedure_view',
   'condition_view',
+  'medication_request_view',
+  'diagnostic_report_view',
+  'coverage_view',
+  'allergy_intolerance_view',
+  'immunization_view',
+  'service_request_view',
   'value_set_expansion',
 ] as const;
 
@@ -208,6 +295,21 @@ export class SqlOnFhirPgliteService {
     this.isReady.set(false);
     this.lastBootError.set(null);
   }
+
+  /** Drop seeded rows and forget the data key so the next seed reloads. */
+  async clearSeededData(): Promise<void> {
+    if (!this.pgPromise) {
+      this.seededKey = null;
+      return;
+    }
+    const pg = await this.pgPromise;
+    await pg.transaction(async tx => {
+      for (const name of FLAT_TABLE_NAMES) {
+        await tx.exec(`TRUNCATE ${name}`);
+      }
+    });
+    this.seededKey = null;
+  }
 }
 
 function normalizeValue(v: FlatRow[string]): unknown {
@@ -245,12 +347,31 @@ async function loadBrowserWasmOptions(): Promise<{
 async function fetchAsBlob(url: string): Promise<Blob> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
-  return await response.blob();
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('text/html')) {
+    throw new Error(
+      `Expected binary asset at ${url}, got HTML (asset missing from Angular serve/build). ` +
+        `Check angular.json pglite asset paths against the hoisted workspace node_modules.`,
+    );
+  }
+  const blob = await response.blob();
+  // pglite.data is multi-MB; SPA index fallbacks are ~1KB.
+  if (blob.size < 100_000) {
+    throw new Error(
+      `PGlite FS bundle at ${url} is only ${blob.size} bytes (expected several MB). ` +
+        `The /pglite/ assets are not being copied into the app.`,
+    );
+  }
+  return blob;
 }
 
 async function fetchAndCompile(url: string): Promise<WebAssembly.Module> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('text/html')) {
+    throw new Error(`Expected WASM at ${url}, got HTML — /pglite/ assets are not being served`);
+  }
   // compileStreaming gives the best performance in browsers that support it
   if (typeof WebAssembly.compileStreaming === 'function') {
     return WebAssembly.compileStreaming(response);

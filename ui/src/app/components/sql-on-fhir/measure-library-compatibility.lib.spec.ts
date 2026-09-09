@@ -68,7 +68,7 @@ describe('measure-library-compatibility.lib', () => {
       parameterSpecs: [],
       parameterValues: {},
       hasExecutionBundle: true,
-      unsupportedResourceTypes: ['MedicationRequest'],
+      unsupportedResourceTypes: ['Claim'],
     });
     expect(issues.some(i => i.code === 'unsupported-resource-type')).toBe(true);
   });

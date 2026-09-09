@@ -133,7 +133,9 @@ Common errors:
 
 Yes — point CQL Studio's **FHIR Base URL** in Settings at your server. The Library picker on `/sql` populates from `GET /fhir/Library` against that URL. Any Library resource with embedded CQL works.
 
-Note that the SQL execution step still runs in your browser via PGlite — it operates on the **demo bundle's** patient data, not your live FHIR server. Once Preston's Issue #20 ships, a server-side execution path will become an option.
+On the Execute step, search and select any number of Patients. Checked flattenable resource types (Patient, Encounter, Observation, Procedure, Condition, MedicationRequest, DiagnosticReport, Coverage, AllergyIntolerance, Immunization, ServiceRequest — all selected by default) are loaded with ordinary paginated FHIR searches (`GET {Type}?patient=…`, Coverage uses `beneficiary`). A progress bar shows work units and a live resource tally while fetching. Estimated payload size is shown; at ≥ 32 MiB the UI warns you to select less data or clear clinical data.
+
+SQL still runs in-browser via PGlite against the flattened rows. Server-side Postgres execution remains Issue #20.
 
 ## Q: How do I run the HAPI FHIR JPA views?
 

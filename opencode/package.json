@@ -1,6 +1,6 @@
 {
   "name": "@cql-studio/opencode",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Private OpenCode runner for CQL Studio AI sessions",
   "type": "module",
   "private": true,

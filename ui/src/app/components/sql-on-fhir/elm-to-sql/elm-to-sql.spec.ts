@@ -1098,3 +1098,118 @@ describe('authoring operators', () => {
     expect(sql).toContain('GREATEST(1, 2)');
   });
 });
+
+describe('Tier 1 resource FK and code columns', () => {
+  test('MedicationRequest Retrieve filters on medication_code', () => {
+    const t = new ElmToSqlTranspiler({ includeComments: false });
+    const { sql } = t.transpile({
+      library: {
+        identifier: { id: 'MedTest', version: '1.0.0' },
+        schemaIdentifier: { id: 'urn:hl7-org:elm', version: 'r1' },
+        usings: { def: [{ localIdentifier: 'FHIR', uri: 'http://hl7.org/fhir', version: '4.0.1' }] },
+        valueSets: {
+          def: [{ name: 'Diabetes Meds', id: 'urn:oid:2.16.840.1.113883.3.464.1003.196.12.1001', accessLevel: 'Public' }],
+        },
+        statements: {
+          def: [
+            {
+              name: 'Diabetes Meds',
+              context: 'Patient',
+              accessLevel: 'Public',
+              expression: {
+                type: 'Retrieve',
+                dataType: '{http://hl7.org/fhir}MedicationRequest',
+                codes: { type: 'ValueSetRef', name: 'Diabetes Meds' },
+              },
+            },
+          ],
+        },
+      },
+    } as ElmLibraryWrapper);
+    expect(sql).toContain('medication_request_view');
+    expect(sql).toContain('medication_code');
+    expect(sql).not.toMatch(/medication_request_view[\s\S]*?\bWHERE code IN/);
+  });
+
+  test('Immunization relationship correlates on patient_id', () => {
+    const t = new ElmToSqlTranspiler({ includeComments: false });
+    const { sql } = t.transpile({
+      library: {
+        identifier: { id: 'ImmTest', version: '1.0.0' },
+        schemaIdentifier: { id: 'urn:hl7-org:elm', version: 'r1' },
+        usings: { def: [{ localIdentifier: 'FHIR', uri: 'http://hl7.org/fhir', version: '4.0.1' }] },
+        statements: {
+          def: [
+            {
+              name: 'Patient',
+              context: 'Patient',
+              accessLevel: 'Public',
+              expression: {
+                type: 'SingletonFrom',
+                operand: { type: 'Retrieve', dataType: '{http://hl7.org/fhir}Patient' },
+              },
+            },
+            {
+              name: 'Has Immunization',
+              context: 'Patient',
+              accessLevel: 'Public',
+              expression: {
+                type: 'Query',
+                source: [
+                  {
+                    alias: 'P',
+                    expression: { type: 'Retrieve', dataType: '{http://hl7.org/fhir}Patient' },
+                  },
+                ],
+                relationship: [
+                  {
+                    type: 'With',
+                    alias: 'I',
+                    expression: { type: 'Retrieve', dataType: '{http://hl7.org/fhir}Immunization' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    } as ElmLibraryWrapper);
+    expect(sql).toContain('immunization_view');
+    expect(sql).toContain('I.patient_id = P.id');
+  });
+
+  test('Coverage Retrieve keys on beneficiary_id for EXISTS correlation', () => {
+    const t = new ElmToSqlTranspiler({ includeComments: false });
+    const { sql } = t.transpile({
+      library: {
+        identifier: { id: 'CovTest', version: '1.0.0' },
+        schemaIdentifier: { id: 'urn:hl7-org:elm', version: 'r1' },
+        usings: { def: [{ localIdentifier: 'FHIR', uri: 'http://hl7.org/fhir', version: '4.0.1' }] },
+        statements: {
+          def: [
+            {
+              name: 'Patient',
+              context: 'Patient',
+              accessLevel: 'Public',
+              expression: {
+                type: 'SingletonFrom',
+                operand: { type: 'Retrieve', dataType: '{http://hl7.org/fhir}Patient' },
+              },
+            },
+            {
+              name: 'Has Coverage',
+              context: 'Patient',
+              accessLevel: 'Public',
+              expression: {
+                type: 'Exists',
+                operand: { type: 'Retrieve', dataType: '{http://hl7.org/fhir}Coverage' },
+              },
+            },
+          ],
+        },
+      },
+    } as ElmLibraryWrapper);
+    expect(sql).toContain('coverage_view');
+    expect(sql).toMatch(/_e\.beneficiary_id\s*=\s*Patient\.id/);
+  });
+});

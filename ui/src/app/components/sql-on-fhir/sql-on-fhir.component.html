@@ -1,73 +1,82 @@
 <div id="sql-on-fhir-page" class="container-fluid py-3 px-3">
-  <div class="alert alert-warning py-2 mb-3" role="status">
-    <span class="small">
-      <i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>
-      This experimental SQL on FHIR workspace runs CQL translation, ELM-to-SQL transpilation, and in-browser Postgres execution in your browser. Track progress:
-      <a id="sql-on-fhir-epic-link" href="https://github.com/cqframework/cql-studio/issues/15" target="_blank"
-        rel="noopener noreferrer">issue #15</a>.
-      Specification:
-      <a href="https://build.fhir.org/ig/FHIR/sql-on-fhir.html" target="_blank" rel="noopener noreferrer">SQL on
-        FHIR</a>.
-    </span>
-  </div>
-
-  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-    <button
-      id="sql-on-fhir-load-cms125-demo"
-      type="button"
-      class="btn btn-primary btn-sm d-inline-flex align-items-center gap-2"
-      (click)="loadCms125Demo()"
-      [disabled]="isLoadingDemo()"
-      aria-label="Load CMS125 demo measure"
-      title="Load the bundled CMS125 demo measure with a synthetic patient bundle">
-      @if (isLoadingDemo()) {
-        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-        <span>Loading demo…</span>
-      } @else {
-        <i class="bi bi-play-circle-fill" aria-hidden="true"></i>
-        <span>Load CMS125 demo</span>
-      }
-    </button>
-  </div>
-  @if (demoLoadError()) {
-  <div class="alert alert-warning py-2" role="alert">{{ demoLoadError() }}</div>
-  }
-
   <div class="row g-3 align-items-start">
     <!-- Library picker + workflow -->
     <div class="col-12 col-lg-3">
+      <div class="mb-3">
+        <button
+          id="sql-on-fhir-load-cms125-demo"
+          type="button"
+          class="btn btn-primary btn-sm d-inline-flex align-items-center gap-2"
+          (click)="loadCms125Demo()"
+          [disabled]="isLoadingDemo()"
+          aria-label="Load CMS125 demo measure"
+          title="Load the bundled CMS125 demo measure with a synthetic patient bundle">
+          @if (isLoadingDemo()) {
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>Loading demo…</span>
+          } @else {
+            <i class="bi bi-play-circle-fill" aria-hidden="true"></i>
+            <span>Load CMS125 demo</span>
+          }
+        </button>
+        <p class="small text-muted mb-0 mt-2">
+          This experimental SQL on FHIR workspace runs CQL translation, ELM-to-SQL transpilation, and in-browser Postgres execution in your browser.
+          Specification:
+          <a href="https://build.fhir.org/ig/FHIR/sql-on-fhir.html" target="_blank" rel="noopener noreferrer">SQL on
+            FHIR</a>.
+        </p>
+      </div>
+      @if (demoLoadError()) {
+      <div class="alert alert-warning py-2" role="alert">{{ demoLoadError() }}</div>
+      }
+
       <app-sql-library-list-panel
         [selectedLibraryId]="selectedLibrary()?.id ?? null"
         (librarySelected)="selectLibraryFromList($event)" />
 
       @if (activePipelineLibrary()) {
-      <div class="card mt-3">
-        <div class="card-body py-2">
-          <nav id="sql-workflow-nav" class="sql-workflow-nav" aria-label="SQL on FHIR pipeline steps">
-            <div class="small text-muted mb-1 fw-semibold">Pipeline</div>
-            <ul class="list-group list-group-flush sql-workflow-list">
-              @for (step of workflowSteps; track step) {
-              <li class="list-group-item px-0 py-1 border-0 bg-transparent">
-                <button type="button"
-                  class="btn btn-sm w-100 text-start d-flex align-items-center gap-2 sql-workflow-step"
-                  [id]="'sql-workflow-step-' + step" [class.active]="activeStep() === step"
-                  [disabled]="!canNavigateToStep(step)"
-                  [title]="!canNavigateToStep(step) ? 'Complete the previous steps first' : workflowStepLabel(step)"
-                  (click)="selectWorkflowStep(step)">
-                  @if (step === 'elm' && isTranslatingElm()) {
-                  <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"
-                    aria-hidden="true"></span>
-                  } @else {
-                  <i [class]="workflowStepIconClasses(step) + ' flex-shrink-0'" aria-hidden="true"></i>
-                  }
-                  <span class="text-truncate">{{ workflowStepLabel(step) }}</span>
-                </button>
-              </li>
-              }
-            </ul>
-          </nav>
+      <nav id="sql-workflow-nav" class="sql-workflow-nav mt-4" aria-label="SQL on FHIR pipeline steps">
+        <div class="mb-2">
+          <div class="small text-muted fw-semibold">Pipeline</div>
+          <div class="small text-muted">Work through steps in order — click a step to open it.</div>
         </div>
-      </div>
+        <ol class="list-unstyled mb-0 d-flex flex-column gap-2">
+          @for (step of workflowSteps; track step; let i = $index) {
+          <li class="sql-workflow-item d-flex align-items-stretch gap-2">
+            <div class="sql-workflow-rail flex-shrink-0 pt-1" aria-hidden="true">
+              <span
+                class="sql-workflow-index d-inline-flex align-items-center justify-content-center rounded-circle border small fw-semibold"
+                [class.text-bg-primary]="activeStep() === step"
+                [class.border-primary]="activeStep() === step"
+                [class.bg-body]="activeStep() !== step && canNavigateToStep(step)"
+                [class.bg-secondary-subtle]="!canNavigateToStep(step)"
+                [class.text-secondary]="!canNavigateToStep(step)">{{ i + 1 }}</span>
+            </div>
+            <button type="button"
+              class="btn btn-sm flex-grow-1 text-start d-flex align-items-center gap-2"
+              [id]="'sql-workflow-step-' + step"
+              [class.bg-primary-subtle]="activeStep() === step"
+              [class.border-primary-subtle]="activeStep() === step"
+              [class.fw-semibold]="activeStep() === step"
+              [disabled]="!canNavigateToStep(step)"
+              [attr.aria-current]="activeStep() === step ? 'step' : null"
+              [title]="!canNavigateToStep(step) ? 'Complete the previous steps first' : 'Open ' + workflowStepLabel(step)"
+              (click)="selectWorkflowStep(step)">
+              <span class="text-truncate flex-grow-1">{{ workflowStepLabel(step) }}</span>
+              @if (step === 'elm' && isTranslatingElm()) {
+              <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"
+                aria-hidden="true"></span>
+              } @else {
+              <i [class]="workflowStepIconClasses(step) + ' flex-shrink-0'" aria-hidden="true"></i>
+              }
+              @if (canNavigateToStep(step) && activeStep() !== step) {
+              <i class="bi bi-chevron-right text-muted flex-shrink-0" aria-hidden="true"></i>
+              }
+            </button>
+          </li>
+          }
+        </ol>
+      </nav>
       }
     </div>
 
@@ -113,12 +122,16 @@
         [patientSearchError]="patientSearchError()"
         [hasExecutionBundle]="bundleHasClinicalResources(executionBundle())"
         [showResourceTypeSelection]="showResourceTypeSelection()"
+        [flattenableResourceTypes]="flattenableResourceTypes()"
         [derivedResourceTypes]="derivedResourceTypes()"
         [unsupportedResourceTypes]="unsupportedResourceTypes()"
         [executionResourceTypes]="executionResourceTypes()"
         [isLoadingPatientData]="isLoadingPatientData()"
+        [patientFetchProgress]="patientFetchProgress()"
         [usingCms125Preset]="usingCms125Preset()"
         [executionBundleSummary]="executionBundleSummary()"
+        [executionDataSizeLabel]="executionDataSizeLabel()"
+        [executionDataSizeWarn]="executionDataSize().exceedsWarningThreshold"
         (executeSql)="executeSql()"
         (generateMeasureReport)="generateMeasureReport()"
         (saveMeasureReport)="saveMeasureReport()"
@@ -128,6 +141,7 @@
         (removePatient)="removeSelectedPatient($event)"
         (toggleExecutionResourceType)="toggleExecutionResourceType($event.type, $event.checked)"
         (selectAllExecutionResourceTypes)="setAllNonPatientResourceTypes($event)"
+        (clearClinicalData)="clearClinicalData()"
         (periodFieldChange)="setPeriodField($event.name, $event.field, $event.value)"
         (scalarParameterChange)="setScalarParameter($event.name, $event.kind, $event.value)"
       />

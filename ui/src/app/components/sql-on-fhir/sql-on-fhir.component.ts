@@ -31,7 +31,15 @@ import {
   assessMeasureLibraryCompatibility,
   hasBlockingCompatibilityIssues,
 } from './measure-library-compatibility.lib';
-import { resolveExecutionResourceTypes } from './measure-resource-types.lib';
+import { resolveExecutionResourceTypes, FLATTENABLE_RESOURCE_TYPES } from './measure-resource-types.lib';
+import {
+  estimateExecutionDataSize,
+  formatDataSize,
+  type ExecutionDataSizeEstimate,
+} from '../../services/sql-on-fhir/sql-on-fhir-data-size.lib';
+import type { PatientFetchProgress } from '../../services/sql-on-fhir/sql-on-fhir-patient-fetch.lib';
+import { emptyPatientFetchProgress } from '../../services/sql-on-fhir/sql-on-fhir-patient-fetch.lib';
+import { SqlOnFhirPgliteService } from '../../services/sql-on-fhir/sql-on-fhir-pglite.service';
 import {
   ensureCms125ValueSetsOnServer,
   publishCms125DemoToServerInitial,
@@ -82,6 +90,7 @@ export class SqlOnFhirComponent {
   private readonly translationService = inject(TranslationService);
   private readonly demoService = inject(SqlOnFhirDemoService);
   private readonly executionDataService = inject(SqlOnFhirExecutionDataService);
+  private readonly pglite = inject(SqlOnFhirPgliteService);
   private readonly patientService = inject(PatientService);
   private readonly toastService = inject(ToastService);
 
@@ -137,8 +146,9 @@ export class SqlOnFhirComponent {
   protected readonly patientSearchResults = signal<Patient[]>([]);
   protected readonly isLoadingPatients = signal(false);
   protected readonly isLoadingPatientData = signal(false);
+  protected readonly patientFetchProgress = signal<PatientFetchProgress | null>(null);
   protected readonly patientSearchError = signal<string | null>(null);
-  protected readonly executionResourceTypes = signal<string[]>(['Patient']);
+  protected readonly executionResourceTypes = signal<string[]>([...FLATTENABLE_RESOURCE_TYPES]);
   protected readonly measureReport = signal<MeasureReport | null>(null);
   protected readonly persistedMeasureReportId = signal<string | null>(null);
   private readonly persistedMeasureReportMeta = signal<MeasureReport['meta'] | null>(null);
@@ -177,6 +187,8 @@ export class SqlOnFhirComponent {
     () => this.resolvedResourceTypes().derivedTypes,
   );
 
+  protected readonly flattenableResourceTypes = computed(() => [...FLATTENABLE_RESOURCE_TYPES]);
+
   protected readonly unsupportedResourceTypes = computed(
     () => this.resolvedResourceTypes().unsupportedTypes,
   );
@@ -189,6 +201,14 @@ export class SqlOnFhirComponent {
 
   protected readonly executionBundleSummary = computed(() =>
     summarizeBundleResources(this.executionBundle()),
+  );
+
+  protected readonly executionDataSize = computed((): ExecutionDataSizeEstimate =>
+    estimateExecutionDataSize(this.executionBundle(), this.bundledValueSets()),
+  );
+
+  protected readonly executionDataSizeLabel = computed(() =>
+    formatDataSize(this.executionDataSize().estimatedBytes),
   );
 
   protected readonly compatibilityIssues = computed(() =>
@@ -301,18 +321,14 @@ export class SqlOnFhirComponent {
       const lib = this.selectedLibrary();
       const elmJson = this.elmJsonRaw();
       if (!lib?.id || !elmJson?.trim()) {
-        this.executionResourceTypes.set(['Patient']);
+        this.executionResourceTypes.set([...FLATTENABLE_RESOURCE_TYPES]);
         this.resourceTypesDefaultsLibraryId = null;
         return;
       }
       if (this.resourceTypesDefaultsLibraryId === lib.id) {
         return;
       }
-      const { derivedTypes } = resolveExecutionResourceTypes({
-        elmJson,
-        library: lib,
-      });
-      this.executionResourceTypes.set(derivedTypes.length > 0 ? derivedTypes : ['Patient']);
+      this.executionResourceTypes.set([...FLATTENABLE_RESOURCE_TYPES]);
       this.resourceTypesDefaultsLibraryId = lib.id;
     });
 
@@ -509,8 +525,9 @@ export class SqlOnFhirComponent {
     this.resourceTypesDefaultsLibraryId = null;
     this.patientDataFetchGeneration++;
     this.isLoadingPatientData.set(false);
+    this.patientFetchProgress.set(null);
     if (clearExecution) {
-      this.executionResourceTypes.set(['Patient']);
+      this.executionResourceTypes.set([...FLATTENABLE_RESOURCE_TYPES]);
       this.executionBundle.set(null);
       this.executionDataKey.set('');
       this.usingCms125Preset.set(false);
@@ -841,11 +858,21 @@ export class SqlOnFhirComponent {
   }
 
   protected setAllNonPatientResourceTypes(selected: boolean): void {
-    const derived = this.derivedResourceTypes().filter(t => t !== 'Patient');
-    const next = selected
-      ? [...new Set([...this.executionResourceTypes(), ...derived, 'Patient'])]
-      : ['Patient'];
+    const all = [...FLATTENABLE_RESOURCE_TYPES];
+    const next = selected ? all : ['Patient'];
     this.onExecutionResourceTypesChange(next);
+  }
+
+  protected clearClinicalData(): void {
+    this.patientDataFetchGeneration++;
+    this.selectedPatients.set([]);
+    this.patientFetchProgress.set(null);
+    this.isLoadingPatientData.set(false);
+    this.executionBundle.set(null);
+    this.executionDataKey.set('');
+    this.bundledValueSets.set([]);
+    this.usingCms125Preset.set(false);
+    void this.pglite.clearSeededData();
   }
 
   protected isExecutionResourceTypeSelected(type: string): boolean {
@@ -884,9 +911,18 @@ export class SqlOnFhirComponent {
       return;
     }
     this.isLoadingPatientData.set(true);
+    this.patientFetchProgress.set(
+      emptyPatientFetchProgress(patients.length, patients.length * (1 + resourceTypes.filter(t => t !== 'Patient').length)),
+    );
     try {
       const bundle = await this.executionDataService.buildBundleFromPatients(patients, {
         resourceTypes,
+        onProgress: progress => {
+          if (generation !== this.patientDataFetchGeneration) {
+            return;
+          }
+          this.patientFetchProgress.set(progress);
+        },
       });
       if (generation !== this.patientDataFetchGeneration) {
         return;
@@ -906,6 +942,7 @@ export class SqlOnFhirComponent {
     } finally {
       if (generation === this.patientDataFetchGeneration) {
         this.isLoadingPatientData.set(false);
+        this.patientFetchProgress.set(null);
       }
     }
   }

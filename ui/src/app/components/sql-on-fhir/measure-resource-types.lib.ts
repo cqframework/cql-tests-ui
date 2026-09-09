@@ -10,6 +10,12 @@ export const FLATTENABLE_RESOURCE_TYPES = [
   'Observation',
   'Procedure',
   'Condition',
+  'MedicationRequest',
+  'DiagnosticReport',
+  'Coverage',
+  'AllergyIntolerance',
+  'Immunization',
+  'ServiceRequest',
 ] as const;
 
 export type FlattenableResourceType = (typeof FLATTENABLE_RESOURCE_TYPES)[number];

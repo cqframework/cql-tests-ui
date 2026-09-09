@@ -56,6 +56,8 @@ The demo works against a hand-crafted bundle in PGlite. The connectathon demo al
 
 The transpiler covers CMS125's logic shapes. Two further measures bracket what production looks like.
 
+- ✅ In-browser flattenable types expanded to Tier 1 (MedicationRequest, DiagnosticReport, Coverage, AllergyIntolerance, Immunization, ServiceRequest) with matching PGlite DDL / flattener / patient-key SQL.
+- ✅ Live patient multi-select uses per-type FHIR search (not `$everything` / bulk export), with fetch progress + 32 MiB memory warning.
 - ⏳ CMS130 (Colorectal Cancer Screening) ELM fixture already shipped under `elm-to-sql/fixtures/`. Wire as a second demo button; tests pass against it.
 - ⏳ A ratio-of-counts measure (e.g. CMS122 Diabetes HbA1c Poor Control) — exercises `If`, `Case`, and observation value-quantity comparisons.
 - ⏳ A measure with a stratifier — exercises grouping logic in the final SELECT.
