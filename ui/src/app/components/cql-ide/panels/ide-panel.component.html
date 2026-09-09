@@ -96,11 +96,16 @@
       </app-console-tab>
     }
     
-    <!-- OpenCode Tab -->
-    @if (getActiveTab()?.type === 'ai') {
-      <app-ai-tab
-        (applyLibraryChange)="onApplyLibraryChange($event)">
-      </app-ai-tab>
+    <!-- OpenCode Tab: keep mounted so its SSE connection survives panel-tab switches. -->
+    @if (hasTabType('ai')) {
+      <div
+        class="h-100"
+        [class.d-none]="getActiveTab()?.type !== 'ai'"
+        [attr.aria-hidden]="getActiveTab()?.type !== 'ai'">
+        <app-ai-tab
+          (applyLibraryChange)="onApplyLibraryChange($event)">
+        </app-ai-tab>
+      </div>
     }
 
     <!-- Clipboard Tab -->
