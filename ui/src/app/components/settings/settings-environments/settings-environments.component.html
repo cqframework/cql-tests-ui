@@ -88,7 +88,7 @@
               <button type="submit" class="btn btn-primary" id="settings-environment-save" [disabled]="busy() || !hasUnsavedChanges()">
                 {{ busy() ? 'Saving…' : 'Save environment' }}
               </button>
-              <button type="button" class="btn btn-outline-secondary" id="settings-environment-discard"
+              <button type="button" class="btn btn-secondary" id="settings-environment-discard"
                 (click)="discardChanges()" [disabled]="busy() || !hasUnsavedChanges()">Discard changes</button>
               <span class="small text-body-secondary" role="status" id="settings-environment-save-status">
                 {{ hasUnsavedChanges() ? 'Unsaved changes' : 'All changes saved' }}

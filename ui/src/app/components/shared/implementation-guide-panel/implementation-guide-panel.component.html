@@ -39,11 +39,11 @@
 
     <div class="d-flex flex-wrap gap-2 mb-2" id="ig-panel-entry-shortcuts">
       @if (mode() === 'export') {
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="ig-panel-all-conformance" (click)="selectAllConformance()">
+        <button type="button" class="btn btn-sm btn-secondary" id="ig-panel-all-conformance" (click)="selectAllConformance()">
           All conformance
         </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="ig-panel-none" (click)="selectNone()">None</button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="ig-panel-reset-defaults" (click)="resetDefaults()">
+        <button type="button" class="btn btn-sm btn-secondary" id="ig-panel-none" (click)="selectNone()">None</button>
+        <button type="button" class="btn btn-sm btn-secondary" id="ig-panel-reset-defaults" (click)="resetDefaults()">
           Reset defaults
         </button>
         <button
@@ -62,10 +62,10 @@
         <button type="button" class="btn btn-sm btn-outline-primary" id="ig-panel-select-referenced" (click)="selectReferenced.emit()">
           Select IG-referenced
         </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="ig-panel-select-conformance" (click)="selectConformanceOnly.emit()">
+        <button type="button" class="btn btn-sm btn-secondary" id="ig-panel-select-conformance" (click)="selectConformanceOnly.emit()">
           Conformance only
         </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="ig-panel-metadata-only" (click)="selectMetadataOnly.emit()">
+        <button type="button" class="btn btn-sm btn-secondary" id="ig-panel-metadata-only" (click)="selectMetadataOnly.emit()">
           IG metadata only
         </button>
       }

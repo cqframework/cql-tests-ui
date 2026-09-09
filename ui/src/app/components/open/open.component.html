@@ -15,11 +15,11 @@
 								(change)="onFileSelected($event)" [disabled]="isLoading()">
 							<!-- Action buttons shown when validation fails -->
 							@if (validationErrors().length > 0 && selectedFile()) {
-								<button id="clear-file-btn" class="btn btn-outline-secondary" type="button" (click)="clearSelectedFile()"
+								<button id="clear-file-btn" class="btn btn-secondary" type="button" (click)="clearSelectedFile()"
 									[disabled]="isLoading()" title="Clear selected file">
 									<i class="bi bi-x-circle"></i> Clear
 								</button>
-								<button id="retry-validation-btn" class="btn btn-outline-secondary" type="button" (click)="rerunValidation()"
+								<button id="retry-validation-btn" class="btn btn-secondary" type="button" (click)="rerunValidation()"
 									[disabled]="isLoading()" title="Rerun validation">
 									<i class="bi bi-arrow-clockwise"></i> Retry
 								</button>
@@ -42,7 +42,7 @@
 								[disabled]="isLoading() || !urlInput().trim()">
 								Load
 							</button>
-							<button id="url-example-button" class="btn btn-outline-secondary" type="button" (click)="onLoadUrlExample()"
+							<button id="url-example-button" class="btn btn-secondary" type="button" (click)="onLoadUrlExample()"
 								[disabled]="isLoading()">
 								Example
 							</button>
@@ -64,7 +64,7 @@
 								[disabled]="isLoading() || indexLoading() || !indexUrl().trim()">
 								Load Index
 							</button>
-							<button id="example-index-button" class="btn btn-outline-secondary" type="button" (click)="onLoadExampleIndex()"
+							<button id="example-index-button" class="btn btn-secondary" type="button" (click)="onLoadExampleIndex()"
 								[disabled]="isLoading() || indexLoading()">
 								Example
 							</button>

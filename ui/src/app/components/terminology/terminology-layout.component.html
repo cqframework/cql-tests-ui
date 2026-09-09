@@ -24,36 +24,66 @@
 
       <!-- Main Content - Only show when server is available -->
       @if (!serverLoading() && serverAvailable()) {
-      <div class="d-flex align-items-center small mt-2">
-        <i class="bi bi-hdd-network"></i>
-        <span class="fw-semibold">Effective terminology server:</span>&nbsp;
+      <div class="d-flex align-items-center gap-2 small text-muted pt-3 pb-2 mb-1 min-w-0">
+        <i class="bi bi-hdd-network flex-shrink-0" aria-hidden="true"></i>
+        <span class="fw-semibold text-body flex-shrink-0">Effective terminology server:</span>
         <span class="text-truncate">{{ settingsService.getEffectiveTerminologyEndpointAddress() }}</span>
       </div>
 
       <!-- Navigation Tabs -->
-      <ul class="nav nav-pills mb-1 py-2" role="tablist">
+      <ul class="nav nav-tabs mb-3" id="terminology-tabs" role="tablist">
         <li class="nav-item" role="presentation">
-          <a class="nav-link" [routerLink]="['/terminology', 'valuesets']" routerLinkActive="active" [routerLinkActiveOptions]="{exact: false}">
+          <a
+            class="nav-link"
+            id="terminology-valuesets-tab"
+            role="tab"
+            [routerLink]="['/terminology', 'valuesets']"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{exact: false}">
             <i class="bi bi-list-ul me-1"></i>Value Sets
           </a>
         </li>
         <li class="nav-item" role="presentation">
-          <a class="nav-link" [routerLink]="['/terminology', 'conceptmaps']" routerLinkActive="active" [routerLinkActiveOptions]="{exact: false}">
+          <a
+            class="nav-link"
+            id="terminology-conceptmaps-tab"
+            role="tab"
+            [routerLink]="['/terminology', 'conceptmaps']"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{exact: false}">
             <i class="bi bi-arrow-left-right me-1"></i>Concept Maps
           </a>
         </li>
         <li class="nav-item" role="presentation">
-          <a class="nav-link" [routerLink]="['/terminology', 'codesystems']" routerLinkActive="active" [routerLinkActiveOptions]="{exact: false}">
+          <a
+            class="nav-link"
+            id="terminology-codesystems-tab"
+            role="tab"
+            [routerLink]="['/terminology', 'codesystems']"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{exact: false}">
             <i class="bi bi-collection me-1"></i>Code Systems
           </a>
         </li>
         <li class="nav-item" role="presentation">
-          <a class="nav-link" [routerLink]="['/terminology', 'validation']" routerLinkActive="active" [routerLinkActiveOptions]="{exact: false}">
+          <a
+            class="nav-link"
+            id="terminology-validation-tab"
+            role="tab"
+            [routerLink]="['/terminology', 'validation']"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{exact: false}">
             <i class="bi bi-check-circle me-1"></i>Code Validation
           </a>
         </li>
         <li class="nav-item" role="presentation">
-          <a class="nav-link" id="terminology-code-search-tab" [routerLink]="['/terminology', 'search']" routerLinkActive="active" [routerLinkActiveOptions]="{exact: false}">
+          <a
+            class="nav-link"
+            id="terminology-code-search-tab"
+            role="tab"
+            [routerLink]="['/terminology', 'search']"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{exact: false}">
             <i class="bi bi-search me-1"></i>Code Search
           </a>
         </li>

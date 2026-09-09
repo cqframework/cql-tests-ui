@@ -9,7 +9,7 @@
     <input id="sql-library-search" type="text" class="form-control" placeholder="Search libraries..."
       [ngModel]="libraryListSearchTerm()" (ngModelChange)="libraryListSearchTerm.set($event)"
       (keydown.enter)="onLibraryListSearch()" />
-    <button id="sql-library-search-btn" class="btn btn-outline-secondary" type="button"
+    <button id="sql-library-search-btn" class="btn btn-secondary" type="button"
       (click)="onLibraryListSearch()" title="Search">
       <i class="bi bi-search" aria-hidden="true"></i>
     </button>
@@ -21,7 +21,7 @@
       <option value="version">Version</option>
       <option value="date">Date</option>
     </select>
-    <button class="btn btn-outline-secondary btn-sm" type="button" (click)="changeSorting(librarySortBy())"
+    <button class="btn btn-secondary btn-sm" type="button" (click)="changeSorting(librarySortBy())"
       [title]="'Sort ' + (librarySortOrder() === 'asc' ? 'descending' : 'ascending')">
       <i class="bi" [class.bi-arrow-up]="librarySortOrder() === 'asc'"
         [class.bi-arrow-down]="librarySortOrder() === 'desc'" aria-hidden="true"></i>

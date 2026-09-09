@@ -7,12 +7,12 @@
         </h1> -->
 
 
-        <button id="toggle-json-editor-btn" type="button" class="btn btn-outline-secondary mx-2"
+        <button id="toggle-json-editor-btn" type="button" class="btn btn-secondary mx-2"
           (click)="toggleJsonEditor()">
           <i class="bi bi-code-slash me-1"></i>
           {{ showJsonEditor() ? 'Form Editor' : 'JSON Editor' }}
         </button>
-        <button id="reset-config-btn" type="button" class="btn btn-outline-secondary mx-2" (click)="reset()">
+        <button id="reset-config-btn" type="button" class="btn btn-secondary mx-2" (click)="reset()">
           <i class="bi bi-arrow-clockwise me-1"></i>Reset
         </button>
         <button id="check-api-health-btn" type="button" class="btn btn-outline-info mx-2" (click)="checkApiHealth()"
@@ -27,7 +27,7 @@
         </button>
         <button id="run-tests-top-btn" type="button" class="btn btn-primary mx-2" (click)="createJob()"
           [disabled]="isCreatingJob() || isPolling() || apiUnavailable()"
-          [class.btn-outline-secondary]="apiUnavailable()">
+          [class.btn-secondary]="apiUnavailable()">
           @if (isCreatingJob()) {
           <span class="spinner-border spinner-border-sm me-2" role="status"></span>
           Initializing Test Run...
@@ -79,7 +79,7 @@
             <button id="load-from-json-btn" type="button" class="btn btn-primary" (click)="triggerFileSelection()">
               <i class="bi bi-upload me-1"></i>Load from File
             </button>
-            <button id="update-json-config-btn" type="button" class="btn btn-outline-secondary"
+            <button id="update-json-config-btn" type="button" class="btn btn-secondary"
               (click)="updateJsonConfig()">
               <i class="bi bi-arrow-clockwise me-1"></i>Update from Form
             </button>
@@ -368,7 +368,7 @@
           <div class="d-flex gap-2 flex-wrap">
             <button id="run-tests-btn" type="button" class="btn btn-primary btn-lg" (click)="createJob()"
               [disabled]="isCreatingJob() || isPolling() || apiUnavailable()"
-              [class.btn-outline-secondary]="apiUnavailable()">
+              [class.btn-secondary]="apiUnavailable()">
               @if (isCreatingJob()) {
               <span class="spinner-border spinner-border-sm me-2" role="status"></span>
               Initializing Test Run...
