@@ -158,6 +158,17 @@ test('gateway strips browser-only context and retains trusted local Workspace or
           documentRevision: 3,
           diagnostics: [{ severity: 'error', message: 'Syntax error at define', line: 14 }],
         },
+        editorContext: {
+          libraryId: 'library-1',
+          file: 'libraries/Main.cql',
+          selectedText: 'define Answer: 42',
+          startLine: 8,
+          startColumn: 0,
+          endLine: 9,
+          endColumn: 18,
+          documentRevision: 3,
+          mode: 'selection',
+        },
       }),
     }
   );
@@ -166,6 +177,17 @@ test('gateway strips browser-only context and retains trusted local Workspace or
     libraryId: 'library-1',
     documentRevision: 3,
     diagnostics: [{ severity: 'error', message: 'Syntax error at define', line: 14 }],
+  });
+  assert.deepEqual(promptInput?.['editorContext'], {
+    libraryId: 'library-1',
+    file: 'libraries/Main.cql',
+    selectedText: 'define Answer: 42',
+    startLine: 8,
+    startColumn: 0,
+    endLine: 9,
+    endColumn: 18,
+    documentRevision: 3,
+    mode: 'selection',
   });
 
   const archiveResponse = await fetch(

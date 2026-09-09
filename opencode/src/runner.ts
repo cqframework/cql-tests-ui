@@ -160,6 +160,7 @@ app.post('/sessions/:id/prompt', asyncHandler(async (req, res) => {
     attachments: Array.isArray(req.body?.attachments) ? req.body.attachments.filter((item: unknown) => typeof item === 'string') : [],
     reasoning: Boolean(req.body?.reasoning),
     editorContext: req.body?.editorContext && typeof req.body.editorContext === 'object' ? {
+      libraryId: String(req.body.editorContext.libraryId ?? ''),
       file: String(req.body.editorContext.file ?? ''),
       selectedText: String(req.body.editorContext.selectedText ?? ''),
       startLine: Number(req.body.editorContext.startLine) || 1,
