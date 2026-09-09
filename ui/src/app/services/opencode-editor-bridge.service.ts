@@ -17,6 +17,7 @@ export interface OpenCodeInlineEditOptions {
 @Injectable({ providedIn: 'root' })
 export class OpenCodeEditorBridgeService {
   readonly document = signal<OpenCodeEditorDocument | null>(null);
+  readonly documents = signal<ReadonlyMap<string, OpenCodeEditorDocument>>(new Map());
   readonly selection = signal<OpenCodeEditorContext | null>(null);
   readonly inlineRequest = signal<{
     id: number;
@@ -27,6 +28,7 @@ export class OpenCodeEditorBridgeService {
   private inlineSequence = 0;
 
   recordDocument(libraryId: string, content: string, userRevision: number): void {
+    this.documents.update(documents => new Map(documents).set(libraryId, { libraryId, content, userRevision }));
     this.document.set({ libraryId, content, userRevision });
     const selection = this.selection();
     if (selection && selection.libraryId === libraryId && selection.documentRevision !== userRevision) {

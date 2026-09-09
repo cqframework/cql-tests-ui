@@ -16,6 +16,7 @@ export interface OpenCodeLibraryInput {
   canonicalUrl?: string;
   cqlContent: string;
   originalContent?: string;
+  documentRevision?: number;
   fhirVersionId?: string;
   workspaceOrigin?: OpenCodeWorkspaceOrigin;
 }
@@ -43,6 +44,7 @@ export interface CreateOpenCodeSessionRequest {
   /** @deprecated retained for clients from before provider selection. */
   ollamaModel: string;
   activeLibrary: OpenCodeLibraryInput;
+  libraries?: OpenCodeLibraryInput[];
   dependencies?: OpenCodeDependencyInput[];
   /** Browser-provided endpoint context retained only in gateway memory. */
   environment?: unknown;
@@ -119,6 +121,7 @@ export interface OpenCodeEditorContext {
 }
 
 export interface OpenCodeActiveFileSyncRequest {
+  libraryId?: string;
   content: string;
   documentRevision: number;
 }
@@ -129,6 +132,7 @@ export interface OpenCodeWorkspaceManifestEntry {
   version?: string;
   canonicalUrl?: string;
   fhirVersionId?: string;
+  workspaceOrigin?: OpenCodeWorkspaceOrigin;
   sourceHash: string;
   draft: boolean;
   writable: boolean;
@@ -178,6 +182,7 @@ export interface OpenCodeCommandDto {
 
 export interface OpenCodeFileReferenceDto {
   path: string;
+  libraryId?: string;
   name: string;
   writable: boolean;
 }
@@ -216,6 +221,8 @@ export interface OpenCodeQuestionRequestDto {
 }
 
 export interface OpenCodeSessionStateDto {
+  libraries?: OpenCodeLibraryInput[];
+  files?: OpenCodeFileReferenceDto[];
   session: OpenCodeSessionDto;
   messages: unknown[];
   diffs: OpenCodeFileDiffDto[];
@@ -242,3 +249,30 @@ export interface OpenCodeErrorBody {
 }
 
 export type OpenCodePermissionResponse = 'once' | 'always' | 'reject';
+
+export class OpenCodeFileToolNames {
+  static readonly CREATE = 'cql_workspace_create';
+  static readonly RENAME = 'cql_workspace_rename';
+}
+
+export interface OpenCodeFileOperation {
+  kind: 'create' | 'rename';
+  libraryId: string;
+  name: string;
+  content: string;
+  file: string;
+  previousFile?: string;
+}
+
+export const openCodeFileTools = [
+  {
+    name: OpenCodeFileToolNames.CREATE,
+    description: 'Create and save a CQL Library in CQL Studio. Waits for user approval when live edits are off. Use this instead of writing unmanaged files.',
+    parameters: { type: 'object', properties: { name: { type: 'string' }, content: { type: 'string' } }, required: ['name', 'content'], additionalProperties: false },
+  },
+  {
+    name: OpenCodeFileToolNames.RENAME,
+    description: 'Rename a managed CQL file and its Library name. Always waits for user approval. Provide updated CQL content including the new library declaration.',
+    parameters: { type: 'object', properties: { file: { type: 'string' }, name: { type: 'string' }, content: { type: 'string' } }, required: ['file', 'name', 'content'], additionalProperties: false },
+  },
+];

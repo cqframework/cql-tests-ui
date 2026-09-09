@@ -1,8 +1,10 @@
 // Author: Preston Lee
 
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
-import { MCPToolNames } from '@cql-studio/core';
+import { MCPToolNames, OpenCodeFileToolNames } from '@cql-studio/core';
 import {
   createOpencode,
   createOpencodeClient,
@@ -12,6 +14,8 @@ import {
 } from '@opencode-ai/sdk/v2';
 import type {
   CreateOpenCodeSessionRequest,
+  OpenCodeLibraryInput,
+  OpenCodeFileOperation,
   OpenCodeAttachmentDto,
   OpenCodeAttachmentUploadRequest,
   OpenCodeModelSwitchRequest,
@@ -42,7 +46,7 @@ const SAFE_NATIVE_TOOLS = new Set(['read', 'glob', 'grep', 'edit', 'question', '
 const DENIED_NATIVE_TOOLS = new Set([
   'bash', 'write', 'task', 'webfetch', 'websearch', 'apply_patch', 'todowrite',
 ]);
-const EXPECTED_MCP_TOOLS = Object.values(MCPToolNames)
+const EXPECTED_MCP_TOOLS = [...Object.values(MCPToolNames), ...Object.values(OpenCodeFileToolNames)]
   .filter((name): name is string => typeof name === 'string');
 const REQUIRED_MCP_TOOL = MCPToolNames.CQL_VALIDATE;
 
@@ -91,6 +95,10 @@ interface RuntimeSession {
   stallTimer?: NodeJS.Timeout;
   stallGeneration: number;
   browserRevision: number;
+  revisions: Map<string, number>;
+  contents: Map<string, string>;
+  operations: Map<string, { permission: OpenCodePermissionRequestDto; operation: OpenCodeFileOperation; resolve: (value: unknown) => void }>;
+  mutation: Promise<void>;
   lastWorkspaceContent: string;
   attachments: Map<string, OpenCodeAttachmentDto>;
   seedMessages: unknown[];
@@ -311,6 +319,10 @@ export class OpenCodeRuntime {
         validationPending: false,
         stallGeneration: 0,
         browserRevision: 0,
+        revisions: new Map([input.activeLibrary, ...(input.libraries ?? [])].map(library => [library.id, library.documentRevision ?? 0])),
+        contents: new Map(workspace.baselineByFile),
+        operations: new Map(),
+        mutation: Promise.resolve(),
         lastWorkspaceContent: input.activeLibrary.cqlContent,
         attachments: new Map(),
         toolBridge: input.toolBridge,
@@ -352,9 +364,10 @@ export class OpenCodeRuntime {
 
   async prompt(id: string, input: OpenCodePromptRequest): Promise<void> {
     const session = this.get(id);
-    if (input.editorContext && input.editorContext.file !== session.workspace.activeFile) {
+    if (input.editorContext && session.workspace.manifest.files[input.editorContext.file]?.libraryId !== input.editorContext.libraryId) {
       throw new OpenCodeError('INVALID_EDITOR_CONTEXT', 'Editor context does not match the active CQL file', 400, false);
     }
+    if (session.dto.status === 'busy') throw new OpenCodeError('SESSION_BUSY', 'OpenCode is already generating', 409, true);
     const lightweightConversation = isLightweightOpenCodeConversation(input);
     if (!lightweightConversation) {
       await this.requireMcpTools(session);
@@ -362,8 +375,8 @@ export class OpenCodeRuntime {
     }
     const ideDiagnostics = lightweightConversation ? undefined : input.ideDiagnostics;
     if (ideDiagnostics && (
-      ideDiagnostics.libraryId !== session.dto.activeLibraryId
-      || ideDiagnostics.documentRevision !== session.browserRevision
+      !Object.values(session.workspace.manifest.files).some(entry => entry.libraryId === ideDiagnostics.libraryId)
+      || ideDiagnostics.documentRevision !== (session.revisions.get(ideDiagnostics.libraryId) ?? 0)
     )) {
       throw new OpenCodeError(
         'STALE_IDE_DIAGNOSTICS',
@@ -397,7 +410,7 @@ export class OpenCodeRuntime {
       const diagnostics = ideDiagnostics.diagnostics.slice(0, 100).map(item => ({
         severity: item.severity,
         message: item.message.slice(0, 2_000),
-        file: session.workspace.activeFile,
+        file: this.workspaces.fileForLibrary(session.workspace, ideDiagnostics.libraryId),
         line: item.line,
         column: item.column,
       }));
@@ -577,13 +590,8 @@ export class OpenCodeRuntime {
 
   async files(id: string, query = '', limit = 30): Promise<OpenCodeFileReferenceDto[]> {
     const session = this.get(id);
-    const allowed = this.workspaces.references(session.workspace, '', 50);
-    const allowedByPath = new Map(allowed.map(file => [file.path, file]));
-    const result = await session.client.find.files({ query, type: 'file', limit: Math.min(Math.max(limit, 1), 50) });
-    const sdkPaths = (result.data ?? []).map(item => typeof item === 'string' ? item : String(item));
-    return sdkPaths.map(file => file.replace(/^\.\//, '')).filter(file => allowedByPath.has(file))
-      .map(file => allowedByPath.get(file)!)
-      .slice(0, limit);
+    await session.mutation;
+    return this.workspaces.references(session.workspace, query, limit);
   }
 
   async messages(id: string): Promise<unknown[]> {
@@ -593,7 +601,9 @@ export class OpenCodeRuntime {
   }
 
   async diff(id: string): Promise<OpenCodeFileDiffDto[]> {
-    return this.workspaces.diff(this.get(id).workspace);
+    const session = this.get(id);
+    await session.mutation;
+    return this.workspaces.diff(session.workspace);
   }
 
   async syncActiveFile(id: string, input: OpenCodeActiveFileSyncRequest): Promise<void> {
@@ -605,7 +615,10 @@ export class OpenCodeRuntime {
       throw new OpenCodeError('ACTIVE_FILE_TOO_LARGE', 'The active CQL file exceeds the 1 MiB OpenCode limit', 413, false);
     }
     const contentChanged = input.content !== session.lastWorkspaceContent;
-    await this.workspaces.syncActiveFile(session.workspace, input.content);
+    await this.mutate(session, () => this.workspaces.syncActiveFile(session.workspace, input.content, input.libraryId));
+    const libraryId = input.libraryId ?? session.dto.activeLibraryId;
+    session.revisions.set(libraryId, input.documentRevision);
+    session.contents.set(this.workspaces.fileForLibrary(session.workspace, libraryId), input.content);
     session.browserRevision = Math.max(0, Math.trunc(input.documentRevision));
     session.lastWorkspaceContent = input.content;
     if (contentChanged) session.validation = null;
@@ -613,6 +626,72 @@ export class OpenCodeRuntime {
     // validation is reserved for changes OpenCode subsequently makes.
     session.validationPending = false;
     this.touch(session);
+  }
+
+  private mutate(session: RuntimeSession, action: () => Promise<void>): Promise<void> {
+    const next = session.mutation.then(action);
+    session.mutation = next.catch(() => undefined);
+    return next;
+  }
+
+  async addLibraries(id: string, libraries: OpenCodeLibraryInput[]): Promise<void> {
+    const session = this.get(id);
+    if (!Array.isArray(libraries) || libraries.length > 100) throw new Error('Provide up to 100 libraries');
+    await this.mutate(session, async () => {
+      for (const library of libraries) {
+        await this.workspaces.addLibrary(session.workspace, library);
+        const file = this.workspaces.fileForLibrary(session.workspace, library.id);
+        if (!session.contents.has(file)) {
+          session.contents.set(file, library.cqlContent);
+          session.revisions.set(library.id, library.documentRevision ?? 0);
+        }
+      }
+    });
+  }
+
+  async removeLibrary(id: string, libraryId: string): Promise<void> {
+    const session = this.get(id);
+    if (session.dto.status === 'busy') await this.abort(id);
+    await this.mutate(session, () => this.workspaces.removeLibrary(session.workspace, libraryId));
+    session.dto.activeFile = session.workspace.activeFile;
+    session.dto.activeLibraryId = session.workspace.manifest.activeLibraryId;
+    session.revisions.delete(libraryId);
+    this.emit(session, { type: 'cql.workspace.files', properties: { files: this.workspaces.references(session.workspace, '', 200), activeFile: session.dto.activeFile, activeLibraryId: session.dto.activeLibraryId } });
+  }
+
+  async requestFileOperation(id: string, name: string, input: Record<string, unknown>, signal = AbortSignal.timeout(60 * 60 * 1000)): Promise<unknown> {
+    const session = this.get(id);
+    if (name !== OpenCodeFileToolNames.CREATE && name !== OpenCodeFileToolNames.RENAME) throw new Error('Unknown file operation');
+    await session.mutation;
+    if (session.operations.size) throw new Error('Finish the pending file operation first');
+    signal.throwIfAborted();
+    const operation = this.workspaces.prepareOperation(session.workspace, name === OpenCodeFileToolNames.CREATE ? 'create' : 'rename', input);
+    const permission: OpenCodePermissionRequestDto = { id: `file-${randomUUID()}`, type: `cql.${operation.kind}`,
+      title: operation.kind === 'create' ? `Create and save ${operation.name}.cql?` : `Rename ${operation.previousFile} to ${operation.name}.cql and save its content?`,
+      pattern: operation.file, metadata: { operation } };
+    this.clearStallTimer(session);
+    return new Promise(resolve => {
+      const abort = () => {
+        if (!session.operations.delete(permission.id)) return;
+        this.emit(session, { type: 'permission.replied', properties: { requestID: permission.id } });
+        resolve({ rejected: true, reason: 'File operation was cancelled' });
+        this.armStallTimer(session);
+      };
+      signal.addEventListener('abort', abort, { once: true });
+      session.operations.set(permission.id, { permission, operation, resolve: value => {
+        signal.removeEventListener('abort', abort);
+        resolve(value);
+      } });
+      this.emit(session, { type: 'permission.asked', properties: permission as unknown as Record<string, unknown> });
+    });
+  }
+
+  private cancelOperations(session: RuntimeSession): void {
+    for (const [id, pending] of session.operations) {
+      pending.resolve({ rejected: true, reason: 'Session stopped' });
+      this.emit(session, { type: 'permission.replied', properties: { requestID: id } });
+    }
+    session.operations.clear();
   }
 
   async state(id: string): Promise<OpenCodeSessionStateDto> {
@@ -626,6 +705,8 @@ export class OpenCodeRuntime {
     ]);
     return {
       session: session.dto,
+      libraries: this.workspaces.librarySnapshots(session.workspace),
+      files: this.workspaces.references(session.workspace, '', 200),
       messages,
       diffs,
       attachments: [...session.attachments.values()],
@@ -640,7 +721,7 @@ export class OpenCodeRuntime {
   async permissions(id: string): Promise<OpenCodePermissionRequestDto[]> {
     const session = this.get(id);
     const result = await session.client.permission.list();
-    return (result.data ?? [])
+    return [...session.operations.values()].map(item => item.permission).concat((result.data ?? [])
       .filter(request => request.sessionID === session.dto.openCodeSessionId)
       .map(request => ({
         id: request.id,
@@ -648,7 +729,7 @@ export class OpenCodeRuntime {
         title: `OpenCode requests permission to ${request.permission}`,
         pattern: request.patterns,
         metadata: request.metadata,
-      }));
+      })));
   }
 
   async questions(id: string): Promise<OpenCodeQuestionRequestDto[]> {
@@ -659,18 +740,26 @@ export class OpenCodeRuntime {
       .map(request => ({ id: request.id, questions: request.questions }));
   }
 
-  async validate(id: string): Promise<OpenCodeValidationDto> {
+  async validate(id: string, file?: string): Promise<OpenCodeValidationDto> {
     const session = this.get(id);
     if (!session.toolBridge) throw new OpenCodeError('VALIDATION_UNAVAILABLE', 'CQL validation bridge is unavailable', 503, true);
-    const workspace = await this.workspaces.validationPayload(session.workspace);
-    const response = await fetch(`${session.toolBridge.baseUrl.replace(/\/+$/, '')}/execute`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${session.toolBridge.capability}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ name: MCPToolNames.CQL_VALIDATE, arguments: { __workspace: workspace } }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) throw new OpenCodeError('VALIDATION_UNAVAILABLE', `CQL validation failed (${response.status})`, 503, true);
-    session.validation = await response.json() as OpenCodeValidationDto;
+    await session.mutation;
+    const files = file ? [file] : Object.keys(session.workspace.manifest.files).filter(candidate => session.workspace.manifest.files[candidate].writable);
+    const results: OpenCodeValidationDto[] = [];
+    for (const requestedFile of files) {
+      const workspace = await this.workspaces.validationPayload(session.workspace, requestedFile);
+      const response = await fetch(`${session.toolBridge.baseUrl.replace(/\/+$/, '')}/execute`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${session.toolBridge.capability}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: MCPToolNames.CQL_VALIDATE, arguments: { __workspace: workspace } }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!response.ok) throw new OpenCodeError('VALIDATION_UNAVAILABLE', `CQL validation failed (${response.status})`, 503, true);
+      results.push(await response.json() as OpenCodeValidationDto);
+    }
+    const result: OpenCodeValidationDto = { valid: results.every(result => result.valid), diagnostics: results.flatMap(result => result.diagnostics), checkedAt: new Date().toISOString() };
+    if (file) return result;
+    session.validation = result;
     session.validationPending = false;
     this.emit(session, { type: 'cql.validation.updated', properties: session.validation as unknown as Record<string, unknown> });
     return session.validation;
@@ -678,6 +767,7 @@ export class OpenCodeRuntime {
 
   async abort(id: string): Promise<void> {
     const session = this.get(id);
+    this.cancelOperations(session);
     await session.client.session.abort({ sessionID: session.dto.openCodeSessionId });
     session.dto.status = 'idle';
     this.clearStallTimer(session);
@@ -686,7 +776,22 @@ export class OpenCodeRuntime {
 
   async permission(id: string, permissionId: string, response: OpenCodePermissionResponse): Promise<void> {
     const session = this.get(id);
-    await session.client.permission.reply({ requestID: permissionId, reply: response });
+    const pending = session.operations.get(permissionId);
+    if (pending) {
+      if (response !== 'reject') {
+        await this.mutate(session, () => this.workspaces.completeOperation(session.workspace, pending.operation));
+        session.dto.activeFile = session.workspace.activeFile;
+        if (pending.operation.previousFile) session.contents.delete(pending.operation.previousFile);
+        session.contents.set(pending.operation.file, pending.operation.content);
+      }
+      session.operations.delete(permissionId);
+      pending.resolve(response === 'reject' ? { rejected: true } : pending.operation);
+      this.emit(session, { type: 'permission.replied', properties: { requestID: permissionId } });
+      this.emit(session, { type: 'cql.workspace.files', properties: { files: this.workspaces.references(session.workspace, '', 200), activeFile: session.workspace.activeFile } });
+      this.armStallTimer(session);
+    } else {
+      await session.client.permission.reply({ requestID: permissionId, reply: response });
+    }
     this.touch(session);
   }
 
@@ -712,6 +817,7 @@ export class OpenCodeRuntime {
   async remove(id: string): Promise<void> {
     const session = this.sessions.get(id);
     if (!session) return;
+    this.cancelOperations(session);
     session.eventAbort.abort();
     this.clearStallTimer(session);
     await session.client.session.delete({ sessionID: session.dto.openCodeSessionId }).catch(() => undefined);
@@ -774,10 +880,8 @@ export class OpenCodeRuntime {
           (typed.type === 'file.edited' || typed.type === 'file.watcher.updated') &&
           typeof properties['file'] === 'string'
         ) {
-          await this.workspaces.assertWorkspaceIntegrity(session.workspace);
-          if (this.workspaces.isActiveFile(session.workspace, properties['file'])) {
-            await this.emitWorkspaceChange(session);
-          }
+          await session.mutation;
+          await this.emitWorkspaceChange(session);
         }
         if (typed.type === 'session.status') {
           session.dto.status = properties['status']?.type === 'busy' ? 'busy' : 'idle';
@@ -795,6 +899,7 @@ export class OpenCodeRuntime {
         }
         this.emit(session, typed);
         if (typed.type === 'session.idle') {
+          await this.emitWorkspaceChange(session);
           this.validatePendingWorkspace(session);
         }
       }
@@ -809,20 +914,19 @@ export class OpenCodeRuntime {
   }
 
   private async emitWorkspaceChange(session: RuntimeSession): Promise<void> {
-    const content = await this.workspaces.readActiveFile(session.workspace);
-    if (content === session.lastWorkspaceContent) return;
-    session.lastWorkspaceContent = content;
-    session.validation = null;
-    session.validationPending = true;
-    this.emit(session, {
-      type: 'cql.workspace.changed',
-      properties: {
-        file: session.workspace.activeFile,
-        libraryId: session.dto.activeLibraryId,
-        content,
-        baseRevision: session.browserRevision,
-      },
-    });
+    await session.mutation;
+    await this.workspaces.assertWorkspaceIntegrity(session.workspace);
+    for (const [file, entry] of Object.entries(session.workspace.manifest.files)) {
+      if (!entry.writable) continue;
+      const content = await readFile(this.workspaces.resolveReference(session.workspace, file), 'utf8');
+      if (content === session.contents.get(file)) continue;
+      session.contents.set(file, content);
+      session.validation = null;
+      session.validationPending = true;
+      this.emit(session, { type: 'cql.workspace.changed', properties: {
+        file, libraryId: entry.libraryId, content, baseRevision: session.revisions.get(entry.libraryId) ?? 0,
+      } });
+    }
     if (session.dto.status !== 'busy') this.validatePendingWorkspace(session);
   }
 
@@ -845,6 +949,7 @@ export class OpenCodeRuntime {
   }
 
   private armStallTimer(session: RuntimeSession): void {
+    if (session.operations.size) return;
     this.clearStallTimer(session);
     const generation = session.stallGeneration;
     session.stallTimer = setTimeout(() => {

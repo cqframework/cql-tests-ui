@@ -11,6 +11,7 @@
   
   @for (library of libraryResources(); track trackByLibraryId($index, library); let i = $index) {
     <div 
+      [id]="'cql-editor-tab-' + library.id"
       class="editor-tab d-flex align-items-center px-2 py-0 border-end cursor-pointer"
       [class.active]="library.id === activeLibraryId()"
       [class.dirty]="library.isDirty"
@@ -22,6 +23,7 @@
     >
       <span class="me-2 tab-name">{{ library.name }}</span>
       <button 
+        [id]="'cql-editor-close-' + library.id"
         class="btn-close btn-sm" 
         (click)="onCloseLibrary(library.id, $event)"
         title="Close tab"

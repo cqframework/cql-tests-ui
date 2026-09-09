@@ -42,6 +42,7 @@ export interface OpenCodeLibrarySnapshot {
   canonicalUrl?: string;
   cqlContent: string;
   originalContent?: string;
+  documentRevision?: number;
   fhirVersionId?: string;
   workspaceOrigin?: OpenCodeWorkspaceOrigin;
 }
@@ -96,6 +97,8 @@ export type OpenCodeIdeDiagnostics = OpenCodeIdeDiagnosticsContext;
 export type OpenCodeValidation = OpenCodeValidationDto;
 
 export interface OpenCodeSessionState {
+  libraries?: OpenCodeLibrarySnapshot[];
+  files?: OpenCodeFileReference[];
   session: OpenCodeSession;
   messages: unknown[];
   diffs: OpenCodeFileDiff[];

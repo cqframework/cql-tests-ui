@@ -7,7 +7,7 @@ import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import path from 'node:path';
-import { MCPToolNames, OpenCodeError } from '@cql-studio/core';
+import { MCPToolNames, OpenCodeFileToolNames, OpenCodeError } from '@cql-studio/core';
 import type {
   CreateOpenCodeSessionRequest,
   OpenCodeAttachmentDto,
@@ -15,6 +15,8 @@ import type {
   OpenCodeProviderConfig,
   OpenCodeFileDiffDto,
   OpenCodeWorkspaceManifest,
+  OpenCodeLibraryInput,
+  OpenCodeFileOperation,
 } from '@cql-studio/core';
 
 const execFileAsync = promisify(execFile);
@@ -192,6 +194,7 @@ export class OpenCodeWorkspaceManager {
   }
 
   async create(input: CreateOpenCodeSessionRequest): Promise<MaterializedWorkspace> {
+    if (input.libraries && (!Array.isArray(input.libraries) || input.libraries.length > 100)) throw new Error('Provide up to 100 CQL libraries');
     const requestedId = input.resume?.sessionId;
     const id = requestedId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedId)
       ? requestedId
@@ -230,8 +233,7 @@ export class OpenCodeWorkspaceManager {
       encoding: 'utf8',
       mode: 0o600,
     });
-    // The active file remains writable, but locking its parent prevents OpenCode
-    // from creating, renaming, or deleting files outside the single-Library flow.
+    // Native tools may edit managed files; structural changes use the approved file tools.
     await chmod(librariesDirectory, 0o500);
 
     const manifest: OpenCodeWorkspaceManifest = {
@@ -246,6 +248,7 @@ export class OpenCodeWorkspaceManager {
           version: input.activeLibrary.version,
           canonicalUrl: input.activeLibrary.canonicalUrl,
           fhirVersionId: input.activeLibrary.fhirVersionId,
+          workspaceOrigin: input.activeLibrary.workspaceOrigin,
           sourceHash: sha256(input.activeLibrary.originalContent ?? input.activeLibrary.cqlContent),
           draft: (input.activeLibrary.originalContent ?? input.activeLibrary.cqlContent) !== input.activeLibrary.cqlContent,
           writable: true,
@@ -254,7 +257,7 @@ export class OpenCodeWorkspaceManager {
     };
 
     for (const dependency of input.dependencies ?? []) {
-      if (!dependency.cqlContent.trim() || dependency.id === input.activeLibrary.id) continue;
+      if (!dependency.cqlContent.trim() || [input.activeLibrary, ...(input.libraries ?? [])].some(library => library.id === dependency.id)) continue;
       const dependencyName = uniqueFile(dependency.name, dependency.id);
       const relativeFile = `dependencies/${dependencyName}`;
       const absoluteFile = path.join(directory, relativeFile);
@@ -275,12 +278,11 @@ export class OpenCodeWorkspaceManager {
     const agentInstructions = [
       '# CQL Studio OpenCode workspace',
       '',
-      `The only writable CQL library is \`${activeFile}\`. Edit that exact file in place.`,
+      `The main CQL library is \`${activeFile}\`. All managed files in libraries/ are writable; choose the corresponding file(s) for the user request.`,
       'Files in `dependencies/` are reference-only and must not be edited.',
-      'Never create, rename, or delete a file anywhere in this workspace.',
-      'If asked to create a different CQL Library, explain that this session can edit only the currently open Library and do not create it.',
+      `Use ${OpenCodeFileToolNames.CREATE} to create CQL libraries and ${OpenCodeFileToolNames.RENAME} to rename them. These tools save to the user library and wait for approval. Never create, rename, or delete files using other tools.`,
       'Preserve the CQL library name and version unless the user explicitly asks to change them.',
-      'When repairing CQL, treat the current CQL Studio Problems context as the initial diagnostic set and then run cql_validate after editing.',
+      `When repairing CQL, treat the current CQL Studio Problems context as the initial diagnostic set and then run ${MCPToolNames.CQL_VALIDATE} for each edited file.`,
       'Before adding or changing a FHIR conversion helper call, read `dependencies/FHIRHelpers.cql` and use only a function declared there. Preserve the active library\'s existing FHIRHelpers alias, or add the 4.0.1 include when needed.',
       'Never invent ValueSet, CodeSystem, or VSAC canonical URLs.',
       'Do not access paths outside this workspace and do not run destructive commands.',
@@ -431,7 +433,7 @@ export class OpenCodeWorkspaceManager {
               CQL_STUDIO_OPENCODE_MCP_ACTIVE_FILE: activeFile,
             },
             enabled: true,
-            timeout: 15_000,
+            timeout: 60 * 60 * 1000,
           },
         },
       } : {}),
@@ -445,13 +447,110 @@ export class OpenCodeWorkspaceManager {
       mode: 0o400,
     });
 
-    return {
-      id,
-      directory,
-      activeFile,
-      manifest,
-      baselineByFile: new Map([[activeFile, input.activeLibrary.cqlContent]]),
-    };
+    const workspace = { id, directory, activeFile, manifest,
+      baselineByFile: new Map([[activeFile, input.activeLibrary.cqlContent]]) };
+    for (const library of input.libraries ?? []) await this.addLibrary(workspace, library);
+    return workspace;
+  }
+
+  fileForLibrary(workspace: MaterializedWorkspace, libraryId: string): string {
+    const file = Object.keys(workspace.manifest.files).find(file => workspace.manifest.files[file].libraryId === libraryId);
+    if (!file) throw new Error(`Library is not in this workspace: ${libraryId}`);
+    return file;
+  }
+
+  private async saveManifest(workspace: MaterializedWorkspace): Promise<void> {
+    const file = path.join(workspace.directory, '.cql-studio/manifest.json');
+    await chmod(file, 0o600);
+    try { await writeFile(file, JSON.stringify(workspace.manifest, null, 2)); }
+    finally { await chmod(file, 0o400); }
+  }
+
+  async addLibrary(workspace: MaterializedWorkspace, library: OpenCodeLibraryInput): Promise<void> {
+    if (!library || typeof library.id !== 'string' || !library.id || typeof library.name !== 'string' || typeof library.cqlContent !== 'string' || Buffer.byteLength(library.cqlContent) > 1_048_576) throw new Error('Invalid CQL library');
+    if (Object.values(workspace.manifest.files).some(entry => entry.libraryId === library.id && entry.writable)) return;
+    const name = safeSegment(library.name, library.id).replace(/\.cql$/i, '');
+    let file = `libraries/${name}.cql`;
+    for (let i = 2; Object.keys(workspace.manifest.files).some(item => item.toLowerCase() === file.toLowerCase()); i++) file = `libraries/${name}-${i}.cql`;
+    await chmod(path.join(workspace.directory, 'libraries'), 0o700);
+    try { await writeFile(path.join(workspace.directory, file), library.cqlContent, { flag: 'wx', mode: 0o600 }); }
+    finally { await chmod(path.join(workspace.directory, 'libraries'), 0o500); }
+    // Promote a previously reference-only dependency when opened in the IDE.
+    for (const [oldFile, entry] of Object.entries(workspace.manifest.files)) {
+      if (entry.libraryId !== library.id) continue;
+      await chmod(path.join(workspace.directory, 'dependencies'), 0o700);
+      try { await rm(path.join(workspace.directory, oldFile)); }
+      finally { await chmod(path.join(workspace.directory, 'dependencies'), 0o500); }
+      delete workspace.manifest.files[oldFile];
+    }
+    workspace.manifest.files[file] = { libraryId: library.id, name: library.name, version: library.version,
+      canonicalUrl: library.canonicalUrl, fhirVersionId: library.fhirVersionId, workspaceOrigin: library.workspaceOrigin,
+      sourceHash: sha256(library.cqlContent), draft: false, writable: true };
+    workspace.baselineByFile.set(file, library.cqlContent);
+    await this.saveManifest(workspace);
+  }
+
+  prepareOperation(workspace: MaterializedWorkspace, kind: 'create' | 'rename', input: Record<string, unknown>): OpenCodeFileOperation {
+    if (typeof input['name'] !== 'string' || !/^[A-Za-z][A-Za-z0-9_]*$/.test(input['name'])) throw new Error('Use a valid CQL library name (letters, digits, underscores)');
+    if (typeof input['content'] !== 'string' || !input['content'].trim() || Buffer.byteLength(input['content']) > 1_048_576) throw new Error('Provide CQL content up to 1 MiB');
+    const name = input['name'];
+    const file = `libraries/${name}.cql`;
+    if (Object.keys(workspace.manifest.files).some(candidate => candidate.toLowerCase() === file.toLowerCase())) throw new Error('A file with that name already exists');
+    const previousFile = kind === 'rename' && typeof input['file'] === 'string' ? input['file'] : undefined;
+    if (kind === 'rename' && (!previousFile || !workspace.manifest.files[previousFile]?.writable)) throw new Error('Rename requires a writable workspace file');
+    return { kind, name, file, content: input['content'], libraryId: previousFile ? workspace.manifest.files[previousFile].libraryId : randomUUID(), previousFile };
+  }
+
+  async completeOperation(workspace: MaterializedWorkspace, operation: OpenCodeFileOperation): Promise<void> {
+    if (operation.kind === 'create') {
+      await this.addLibrary(workspace, { id: operation.libraryId, name: operation.name, cqlContent: operation.content });
+      return;
+    }
+    const previous = operation.previousFile!;
+    const entry = workspace.manifest.files[previous];
+    if (!entry?.writable || workspace.manifest.files[operation.file]) throw new Error('Workspace changed while awaiting approval');
+    await chmod(path.join(workspace.directory, 'libraries'), 0o700);
+    try {
+      await writeFile(path.join(workspace.directory, operation.file), operation.content, { flag: 'wx', mode: 0o600 });
+      await rm(this.resolveReference(workspace, previous));
+    } finally { await chmod(path.join(workspace.directory, 'libraries'), 0o500); }
+    delete workspace.manifest.files[previous];
+    workspace.manifest.files[operation.file] = { ...entry, name: operation.name, sourceHash: sha256(operation.content) };
+    workspace.baselineByFile.delete(previous);
+    workspace.baselineByFile.set(operation.file, operation.content);
+    if (workspace.activeFile === previous) workspace.activeFile = operation.file;
+    await this.saveManifest(workspace);
+    for (const file of ['AGENTS.md', '.opencode/skills/validate-vsac/SKILL.md', ...(await readdir(path.join(workspace.directory, '.opencode/commands'))).map(name => `.opencode/commands/${name}`)]) {
+      if (!file) continue;
+      const absolute = path.join(workspace.directory, file);
+      const content = await readFile(absolute, 'utf8');
+      await chmod(absolute, 0o600);
+      try { await writeFile(absolute, content.replaceAll(previous, operation.file)); }
+      finally { await chmod(absolute, 0o400); }
+    }
+  }
+
+  async removeLibrary(workspace: MaterializedWorkspace, libraryId: string): Promise<void> {
+    const file = this.fileForLibrary(workspace, libraryId);
+    const directory = path.dirname(this.resolveReference(workspace, file));
+    await chmod(directory, 0o700);
+    try { await rm(this.resolveReference(workspace, file)); }
+    finally { await chmod(directory, 0o500); }
+    delete workspace.manifest.files[file];
+    workspace.baselineByFile.delete(file);
+    if (workspace.activeFile === file) {
+      workspace.activeFile = Object.keys(workspace.manifest.files).find(candidate => workspace.manifest.files[candidate].writable) ?? '';
+      workspace.manifest.activeLibraryId = workspace.manifest.files[workspace.activeFile]?.libraryId ?? '';
+    }
+    await this.saveManifest(workspace);
+  }
+
+  librarySnapshots(workspace: MaterializedWorkspace): OpenCodeLibraryInput[] {
+    return [...workspace.baselineByFile].map(([file, cqlContent]) => {
+      const entry = workspace.manifest.files[file];
+      return { id: entry.libraryId, name: entry.name, version: entry.version, canonicalUrl: entry.canonicalUrl,
+        fhirVersionId: entry.fhirVersionId, workspaceOrigin: entry.workspaceOrigin, cqlContent };
+    });
   }
 
   async assertWorkspaceIntegrity(workspace: MaterializedWorkspace): Promise<void> {
@@ -492,11 +591,12 @@ export class OpenCodeWorkspaceManager {
     return diffs;
   }
 
-  async syncActiveFile(workspace: MaterializedWorkspace, content: string): Promise<void> {
+  async syncActiveFile(workspace: MaterializedWorkspace, content: string, libraryId = workspace.manifest.activeLibraryId): Promise<void> {
     await this.assertWorkspaceIntegrity(workspace);
-    const absolute = this.resolveReference(workspace, workspace.activeFile);
-    await writeFile(absolute, content, { encoding: 'utf8', mode: 0o600 });
-    workspace.baselineByFile.set(workspace.activeFile, content);
+    const file = this.fileForLibrary(workspace, libraryId);
+    if (!workspace.manifest.files[file].writable) throw new Error('Library is read-only');
+    await writeFile(this.resolveReference(workspace, file), content, { encoding: 'utf8', mode: 0o600 });
+    workspace.baselineByFile.set(file, content);
   }
 
   async readActiveFile(workspace: MaterializedWorkspace): Promise<string> {
@@ -626,12 +726,12 @@ export class OpenCodeWorkspaceManager {
     return absolute === this.resolveReference(workspace, workspace.activeFile);
   }
 
-  references(workspace: MaterializedWorkspace, query = '', limit = 30): Array<{ path: string; name: string; writable: boolean }> {
+  references(workspace: MaterializedWorkspace, query = '', limit = 30): Array<{ path: string; libraryId: string; name: string; writable: boolean }> {
     const normalized = query.trim().toLowerCase().replace(/^@/, '');
     return Object.entries(workspace.manifest.files)
       .filter(([file]) => file.toLowerCase().endsWith('.cql') && (!normalized || file.toLowerCase().includes(normalized)))
-      .slice(0, Math.min(Math.max(limit, 1), 50))
-      .map(([file, entry]) => ({ path: file, name: path.basename(file), writable: entry.writable }));
+      .slice(0, Math.min(Math.max(limit, 1), 200))
+      .map(([file, entry]) => ({ path: file, libraryId: entry.libraryId, name: path.basename(file), writable: entry.writable }));
   }
 
   resolveReference(workspace: MaterializedWorkspace, relativeFile: string): string {

@@ -5,6 +5,12 @@ import { expect, test } from '@playwright/test';
 const studioOrigin = `http://localhost:${process.env['PLAYWRIGHT_PORT'] ?? '4200'}`;
 
 test.describe('OpenCode browser integration', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/configuration.js', route => route.fulfill({ contentType: 'application/javascript', body: 'window.CQL_STUDIO_SERVER_BASE_URL = "http://localhost:3003";' }));
+    await page.route('**/api/auth/session', route => route.fulfill({ json: { enabled: true, user: { id: 'opencode-test-user', email: 'test@example.test', displayName: 'OpenCode test' } } }));
+    await page.route('**/api/users/me/**', route => route.fulfill({ status: 404, json: {} }));
+    await page.route('**/api/workspaces**', route => route.fulfill({ json: [] }));
+  });
   test('offers opt-in Ollama CQL predictions and accepts them with Tab', async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem('cql_tests_ui_settings', JSON.stringify({
@@ -174,8 +180,8 @@ test.describe('OpenCode browser integration', () => {
         await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify(commands) });
       } else if (path.endsWith('/files')) {
         await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify([
-          { path: 'libraries/BrowserOpenCode.cql', name: 'BrowserOpenCode.cql', writable: true },
-          { path: 'dependencies/FHIRHelpers.cql', name: 'FHIRHelpers.cql', writable: false },
+          { path: 'libraries/BrowserOpenCode.cql', libraryId: 'BrowserOpenCode', name: 'BrowserOpenCode.cql', writable: true },
+          { path: 'dependencies/FHIRHelpers.cql', libraryId: 'FHIRHelpers', name: 'FHIRHelpers.cql', writable: false },
         ]) });
       } else if (path.endsWith('/state')) {
         await route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({
@@ -373,8 +379,7 @@ test.describe('OpenCode browser integration', () => {
     await expect(page.getByRole('button', { name: 'Apply & save' })).toBeEnabled();
     await page.getByRole('button', { name: 'Apply & save' }).click();
     await expect.poll(() => fhirSaved).toBe(true);
-    const savedButton = page.getByRole('button', { name: 'Saved' });
-    await expect(savedButton).toBeDisabled();
+    await expect(page.locator('#opencode-save-BrowserOpenCode')).toHaveCount(0);
 
     await page.locator('.cm-content').click();
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+i' : 'Control+i');

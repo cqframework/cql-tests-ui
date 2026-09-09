@@ -17,6 +17,7 @@ import {
   OpenCodeAttachment,
   OpenCodeEnvironmentBinding,
   OpenCodeIdeDiagnostics,
+  OpenCodeLibrarySnapshot,
 } from '../models/opencode.model';
 import { SettingsService } from './settings.service';
 import type { AiProviderType } from '../models/settings.model';
@@ -135,11 +136,25 @@ export class OpenCodeService {
     }).then(() => undefined);
   }
 
-  syncActiveFile(sessionId: string, content: string, documentRevision: number): Promise<void> {
+  syncActiveFile(sessionId: string, content: string, documentRevision: number, libraryId?: string): Promise<void> {
     this.assertSessionEnvironment(sessionId);
     return this.request(`/sessions/${encodeURIComponent(sessionId)}/active-file`, {
       method: 'PUT',
-      body: JSON.stringify({ content, documentRevision }),
+      body: JSON.stringify({ content, documentRevision, libraryId }),
+    }).then(() => undefined);
+  }
+
+  addLibraries(sessionId: string, libraries: OpenCodeLibrarySnapshot[]): Promise<void> {
+    this.assertSessionEnvironment(sessionId);
+    return this.request(`/sessions/${encodeURIComponent(sessionId)}/libraries`, {
+      method: 'POST', body: JSON.stringify({ libraries }),
+    }).then(() => undefined);
+  }
+
+  removeLibrary(sessionId: string, libraryId: string): Promise<void> {
+    this.assertSessionEnvironment(sessionId);
+    return this.request(`/sessions/${encodeURIComponent(sessionId)}/libraries/${encodeURIComponent(libraryId)}`, {
+      method: 'DELETE',
     }).then(() => undefined);
   }
 
@@ -185,7 +200,7 @@ export class OpenCodeService {
   }
 
   findFiles(sessionId: string, query: string): Promise<OpenCodeFileReference[]> {
-    return this.request(`/sessions/${encodeURIComponent(sessionId)}/files?q=${encodeURIComponent(query)}&limit=30`);
+    return this.request(`/sessions/${encodeURIComponent(sessionId)}/files?q=${encodeURIComponent(query)}&limit=100`);
   }
 
   executeCommand(sessionId: string, command: string, args: string, reasoning = false): Promise<void> {
@@ -196,9 +211,9 @@ export class OpenCodeService {
     ).then(() => undefined);
   }
 
-  validate(sessionId: string): Promise<OpenCodeValidation> {
+  validate(sessionId: string, file?: string): Promise<OpenCodeValidation> {
     this.assertSessionEnvironment(sessionId);
-    return this.request(`/sessions/${encodeURIComponent(sessionId)}/validate`, { method: 'POST' });
+    return this.request(`/sessions/${encodeURIComponent(sessionId)}/validate`, { method: 'POST', body: JSON.stringify({ file }) });
   }
 
   respondToPermission(

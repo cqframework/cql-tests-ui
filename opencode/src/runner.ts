@@ -113,8 +113,21 @@ app.put('/sessions/:id/active-file', asyncHandler(async (req, res) => {
   if (content === null || !Number.isFinite(documentRevision) || documentRevision < 0) {
     throw new OpenCodeError('INVALID_ACTIVE_FILE', 'content and a non-negative documentRevision are required', 400, false);
   }
-  await runtime.syncActiveFile(req.params.id, { content, documentRevision });
+  await runtime.syncActiveFile(req.params.id, { content, documentRevision, libraryId: req.body?.libraryId });
   res.status(204).send();
+}));
+app.post('/sessions/:id/libraries', asyncHandler(async (req, res) => {
+  await runtime.addLibraries(req.params.id, req.body.libraries);
+  res.status(204).send();
+}));
+app.delete('/sessions/:id/libraries/:libraryId', asyncHandler(async (req, res) => {
+  await runtime.removeLibrary(req.params.id, req.params.libraryId);
+  res.status(204).send();
+}));
+app.post('/sessions/:id/file-operation', asyncHandler(async (req, res) => {
+  const abort = new AbortController();
+  res.on('close', () => abort.abort());
+  res.json(await runtime.requestFileOperation(req.params.id, req.body.name, req.body.arguments ?? {}, AbortSignal.any([abort.signal, AbortSignal.timeout(60 * 60 * 1000)])));
 }));
 app.get('/sessions/:id/commands', asyncHandler(async (req, res) => {
   res.json(await runtime.commands(req.params.id));
@@ -132,7 +145,7 @@ app.post('/sessions/:id/commands/:command', asyncHandler(async (req, res) => {
   res.status(202).json({ accepted: true });
 }));
 app.post('/sessions/:id/validate', asyncHandler(async (req, res) => {
-  res.json(await runtime.validate(req.params.id));
+  res.json(await runtime.validate(req.params.id, typeof req.body?.file === 'string' ? req.body.file : undefined));
 }));
 
 app.post('/sessions/:id/prompt', asyncHandler(async (req, res) => {

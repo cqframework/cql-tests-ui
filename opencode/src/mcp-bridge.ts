@@ -5,7 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { MCPToolNames } from '@cql-studio/core';
+import { MCPToolNames, OpenCodeFileToolNames } from '@cql-studio/core';
 import type { OpenCodeWorkspaceManifest } from '@cql-studio/core';
 
 interface ToolDefinition {
@@ -27,7 +27,7 @@ async function bridgeRequest<T>(path: string, init: RequestInit = {}): Promise<T
   const headers = new Headers(init.headers);
   headers.set('authorization', `Bearer ${capability}`);
   if (init.body) headers.set('content-type', 'application/json');
-  const response = await fetch(`${baseUrl}${path}`, { ...init, headers, signal: AbortSignal.timeout(30_000) });
+  const response = await fetch(`${baseUrl}${path}`, { ...init, headers, signal: AbortSignal.timeout(60 * 60 * 1000) });
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { error?: string } | null;
     throw new Error(payload?.error || `CQL Studio MCP gateway returned HTTP ${response.status}`);
@@ -47,7 +47,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       name: tool.name,
       description: tool.description,
       inputSchema: tool.parameters,
-      annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+      annotations: { readOnlyHint: !Object.values(OpenCodeFileToolNames).includes(tool.name), destructiveHint: false, openWorldHint: true },
     })),
   };
 });
@@ -59,7 +59,7 @@ server.setRequestHandler(CallToolRequestSchema, async request => {
       if (!workspace || !activeFile) throw new Error('CQL validation workspace configuration is missing');
       const manifestPath = path.join(workspace, '.cql-studio', 'manifest.json');
       const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as OpenCodeWorkspaceManifest;
-      const requested = typeof argumentsForTool['file'] === 'string' ? argumentsForTool['file'] : activeFile;
+      const requested = typeof argumentsForTool['file'] === 'string' ? argumentsForTool['file'] : Object.keys(manifest.files).find(file => manifest.files[file].libraryId === manifest.activeLibraryId) ?? activeFile;
       if (!manifest.files[requested]) throw new Error(`CQL file is not in this workspace: ${requested}`);
       argumentsForTool['__workspace'] = {
         activeFile: requested,

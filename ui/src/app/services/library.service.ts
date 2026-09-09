@@ -1,11 +1,11 @@
 // Author: Preston Lee
 
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { BaseService } from './base.service';
 import { Library, Parameters, Bundle } from 'fhir/r4';
 import { decodeUtf8Base64 } from './utf8-encoding.lib';
 import { Observable, of, throwError } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
+import { map, catchError, tap } from 'rxjs/operators';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { SettingsService } from './settings.service';
 import { buildHttpHeaders } from './endpoint-config.lib';
@@ -15,6 +15,8 @@ import { appendEvaluateEndpointParameters } from './cql-evaluate-parameters.lib'
 	providedIn: 'root'
 })
 export class LibraryService extends BaseService {
+
+  readonly deletedLibraryIds = signal<ReadonlySet<string>>(new Set());
 
 	public static readonly LIBRARY_PATH = '/Library';
 
@@ -192,7 +194,9 @@ export class LibraryService extends BaseService {
 	}
 
 	delete(Library: Library) {
-		return this.http.delete<Library>(this.urlFor(Library.id!), { headers: this.evaluationHeaders() });
+		return this.http.delete<Library>(this.urlFor(Library.id!), { headers: this.evaluationHeaders() }).pipe(tap(() => {
+      this.deletedLibraryIds.update(ids => new Set(ids).add(Library.id!));
+    }));
 	}
 
     evaluate(libraryId: string, parameters: Parameters) {

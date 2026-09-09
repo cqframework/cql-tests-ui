@@ -15,6 +15,7 @@
     "watch": "npm run build && node --watch dist/runner.js",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
+    "test:api": "node --test --import tsx tests/opencode-multifile-api.test.ts",
     "test": "node --test --import tsx tests/opencode-env.test.ts tests/opencode-workspace.test.ts"
   },
   "author": "Preston Lee",

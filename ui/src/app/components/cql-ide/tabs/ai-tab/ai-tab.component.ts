@@ -1,6 +1,9 @@
 // Author: Preston Lee
 
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, effect, inject, output, signal } from '@angular/core';
+import type { OpenCodeFileOperation } from '@cql-studio/core';
+import { OpenCodeLibraryWorkspaceService } from '../../../../services/opencode-library-workspace.service';
+import { LibraryService } from '../../../../services/library.service';
 import { FormsModule } from '@angular/forms';
 import { MarkdownComponent } from 'ngx-markdown';
 import {
@@ -75,6 +78,13 @@ export class AiTabComponent implements OnInit, OnDestroy {
   private readonly ideStateService = inject(IdeStateService);
   readonly settingsService = inject(SettingsService);
   private readonly openCodeService = inject(OpenCodeService);
+  private readonly libraryWorkspace = inject(OpenCodeLibraryWorkspaceService);
+  private readonly libraryService = inject(LibraryService);
+  private membershipKey = '';
+  private membershipSync: Promise<void> = Promise.resolve();
+  private readonly pendingApprovals = signal<ReadonlySet<string>>(new Set());
+  readonly workspaceFiles = signal<OpenCodeFileReference[]>([]);
+  readonly workingFile = signal<string | null>(null);
   private readonly editorBridge = inject(OpenCodeEditorBridgeService);
   private readonly vsacImport = inject(OpenCodeVsacImportService);
   private readonly messageRoles = new Map<string, 'user' | 'assistant'>();
@@ -139,7 +149,7 @@ export class AiTabComponent implements OnInit, OnDestroy {
   readonly activeLibrary = computed(() => this.ideStateService.getActiveLibraryResource());
   readonly canStart = computed(() => {
     const library = this.activeLibrary();
-    return this.isAvailable() && Boolean(library) && !library?.contentLoading && !library?.contentLoadError
+    return !library?.isReadOnly && this.isAvailable() && Boolean(library) && !library?.contentLoading && !library?.contentLoadError
       && Boolean(this.contentForLibrary(library!).trim()) && this.status() !== 'starting';
   });
   readonly sessionArchived = computed(() => this.session()?.availability === 'archived');
@@ -172,11 +182,39 @@ export class AiTabComponent implements OnInit, OnDestroy {
     const selection = this.editorBridge.selection();
     const active = this.activeLibrary();
     const session = this.session();
-    if (!selection || !active || !session || selection.libraryId !== active.id || session.activeLibraryId !== active.id) return null;
-    return { ...selection, file: session.activeFile };
+    const file = this.workspaceFiles().find(file => file.libraryId === active?.id && file.writable);
+    if (!selection || !active || !session || selection.libraryId !== active.id || !file) return null;
+    return { ...selection, file: file.path };
   });
 
   constructor() {
+    effect(() => {
+      const libraries = this.ideStateService.libraryResources();
+      this.libraryWorkspace.remember(libraries);
+      const session = this.session();
+      const deleted = this.libraryService.deletedLibraryIds();
+      if (!session || this.sessionArchived() || this.environmentStale()) return;
+      const additions = libraries.filter(library => !library.isReadOnly && !library.contentLoading && !library.contentLoadError && !deleted.has(library.id));
+      const key = JSON.stringify([session.id, additions.map(library => library.id).sort(), [...deleted].sort()]);
+      if (this.membershipKey === key) return;
+      this.membershipKey = key;
+      this.membershipSync = this.membershipSync.catch(() => undefined).then(async () => {
+        if (this.session()?.id !== session.id) return;
+        const files = await this.openCodeService.findFiles(session.id, '');
+        const missing = additions.filter(library => !this.permissions().some(permission => (permission.metadata?.['operation'] as OpenCodeFileOperation | undefined)?.libraryId === library.id) && !files.some(file => file.libraryId === library.id && file.writable));
+        if (missing.length) await this.openCodeService.addLibraries(session.id, missing.map(library => ({ ...this.snapshot(library), cqlContent: this.contentForLibrary(library) })));
+        for (const file of files) {
+          if (file.libraryId && deleted.has(file.libraryId)) {
+            await this.openCodeService.removeLibrary(session.id, file.libraryId);
+            this.libraryWorkspace.forget(file.libraryId);
+          }
+        }
+        if (missing.length || files.some(file => file.libraryId && deleted.has(file.libraryId))) {
+          this.workspaceFiles.set(await this.openCodeService.findFiles(session.id, ''));
+        } else if (JSON.stringify(this.workspaceFiles()) !== JSON.stringify(files)) this.workspaceFiles.set(files);
+      }).catch(error => { this.membershipKey = ''; this.setError(error); });
+    });
+
     effect(() => {
       const request = this.editorBridge.inlineRequest();
       if (!request || request.id === this.lastInlineRequestId) return;
@@ -226,7 +264,7 @@ export class AiTabComponent implements OnInit, OnDestroy {
     let session = this.session();
     if (request.autoSend && (
       !session ||
-      session.activeLibraryId !== request.context.libraryId ||
+      !this.workspaceFiles().some(file => file.libraryId === request.context.libraryId && file.writable) ||
       this.status() === 'error' ||
       this.environmentStale()
     )) {
@@ -237,7 +275,7 @@ export class AiTabComponent implements OnInit, OnDestroy {
     this.inlineContext.set({ ...request.context, file: session?.activeFile ?? '' });
     if (request.prompt) this.promptText.set(request.prompt);
 
-    if (request.autoSend && session?.activeLibraryId === request.context.libraryId) {
+    if (request.autoSend && this.workspaceFiles().some(file => file.libraryId === request.context.libraryId && file.writable)) {
       this.autoSendInlineRequest.set(true);
       return;
     }
@@ -260,8 +298,8 @@ export class AiTabComponent implements OnInit, OnDestroy {
 
   async startSession(): Promise<void> {
     const active = this.activeLibrary();
-    if (!active) {
-      this.error.set('Open or create a CQL library before starting OpenCode.');
+    if (!active || active.isReadOnly) {
+      this.error.set('Open or create a writable CQL library before starting OpenCode.');
       return;
     }
     if (active.contentLoading) {
@@ -349,6 +387,9 @@ export class AiTabComponent implements OnInit, OnDestroy {
       ollamaBaseUrl: this.settingsService.getEffectiveOllamaBaseUrl(),
       ollamaModel: this.settingsService.getEffectiveOllamaModel(),
       activeLibrary: { ...this.snapshot(active), cqlContent },
+      libraries: this.ideStateService.libraryResources()
+        .filter(library => !library.isReadOnly && !library.contentLoading && !library.contentLoadError)
+        .map(library => ({ ...this.snapshot(library), cqlContent: this.contentForLibrary(library) })),
       dependencies: await this.collectDependencies(active, cqlContent),
       environment: this.settingsService.getEffectiveActiveEnvironment(),
       toolContext: {
@@ -412,6 +453,7 @@ export class AiTabComponent implements OnInit, OnDestroy {
     try {
       const state = await this.openCodeService.getState(session.id);
       this.hydrate(state);
+      if (state.session.availability !== 'archived') await this.loadCommandsAndFiles();
       if (state.session.availability !== 'archived') {
         this.connectEvents(session.id);
       } else {
@@ -431,6 +473,7 @@ export class AiTabComponent implements OnInit, OnDestroy {
       await this.runSlashCommand(message);
       return;
     }
+    await this.membershipSync;
     const editorContext = this.contextForPrompt(session);
     const promptMessage = editorContext?.mode === 'inline'
       ? `Make a focused edit to the selected CQL range. User request: ${message}`
@@ -576,13 +619,13 @@ export class AiTabComponent implements OnInit, OnDestroy {
 
   async applyAndSave(diff: OpenCodeFileDiff): Promise<void> {
     const session = this.session();
-    if (!session || this.environmentStale()) return;
+    if (!session || this.environmentStale() || this.status() === 'busy' || this.isDiffSaving(diff.file)) return;
     this.savingDiffFiles.update(files => new Set(files).add(diff.file));
     try {
-      const result = await this.openCodeService.validate(session.id);
+      const result = await this.openCodeService.validate(session.id, diff.file);
       this.validation.set(result);
       if (!result.valid) {
-        this.error.set('Apply & save is blocked until all CQL validation errors are fixed.');
+        this.error.set(`Apply & save is blocked until validation errors in ${diff.file} are fixed.`);
         return;
       }
       const vsacReferences = extractVsacCanonicalUrls(diff.after);
@@ -619,15 +662,19 @@ export class AiTabComponent implements OnInit, OnDestroy {
           throw error;
         }
       }
-      this.applyLibraryChange.emit({
+      const saved = await new Promise<boolean>(resolve => this.applyLibraryChange.emit({
         libraryId: diff.libraryId,
         cqlContent: diff.after,
         save: true,
         vsacTerminologyReady: vsacReferences.length > 0,
-        onSaveComplete: saved => {
-          if (saved) this.savedDiffFiles.update(files => new Set(files).add(diff.file));
-        },
-      });
+        onSaveComplete: resolve,
+      }));
+      if (saved) {
+        const revision = this.editorBridge.documents().get(diff.libraryId)?.userRevision ?? 0;
+        await this.openCodeService.syncActiveFile(session.id, diff.after, revision, diff.libraryId);
+        this.diffs.update(items => items.filter(item => item.file !== diff.file));
+        this.liveBaselines.delete(diff.file);
+      }
     } catch (error) {
       this.setError(error);
     } finally {
@@ -650,17 +697,17 @@ export class AiTabComponent implements OnInit, OnDestroy {
     this.liveBaselines.delete(diff.file);
     this.savedDiffFiles.update(files => { const next = new Set(files); next.delete(diff.file); return next; });
     const session = this.session();
-    const revision = this.editorBridge.document()?.userRevision ?? 0;
-    if (session) void this.openCodeService.syncActiveFile(session.id, diff.after, revision).catch(error => this.setError(error));
+    const revision = this.editorBridge.documents().get(diff.libraryId)?.userRevision ?? 0;
+    if (session) void this.openCodeService.syncActiveFile(session.id, diff.after, revision, diff.libraryId).catch(error => this.setError(error));
   }
 
   async revertChange(diff: OpenCodeFileDiff): Promise<void> {
     const session = this.session();
     if (!session || this.environmentStale()) return;
-    const revision = this.editorBridge.document()?.userRevision ?? 0;
+    const revision = this.editorBridge.documents().get(diff.libraryId)?.userRevision ?? 0;
     this.applyLibraryChange.emit({ libraryId: diff.libraryId, cqlContent: diff.before, save: false, mode: 'revert' });
     try {
-      await this.openCodeService.syncActiveFile(session.id, diff.before, revision);
+      await this.openCodeService.syncActiveFile(session.id, diff.before, revision, diff.libraryId);
       this.diffs.update(items => items.filter(item => item.file !== diff.file));
       this.validation.set(null);
       this.liveBaselines.delete(diff.file);
@@ -672,13 +719,13 @@ export class AiTabComponent implements OnInit, OnDestroy {
 
   async discardChange(diff: OpenCodeFileDiff): Promise<void> {
     const session = this.session();
-    const document = this.editorBridge.document();
-    const active = this.activeLibrary();
-    if (!session || !active || this.environmentStale()) return;
-    const content = document?.libraryId === active.id ? document.content : active.cqlContent;
-    const revision = document?.libraryId === active.id ? document.userRevision : 0;
+    if (!session || this.environmentStale()) return;
+    const library = this.libraryWorkspace.get(diff.libraryId);
+    const document = this.editorBridge.documents().get(diff.libraryId);
+    const content = document?.content ?? library?.cqlContent ?? diff.before;
+    const revision = document?.userRevision ?? 0;
     try {
-      await this.openCodeService.syncActiveFile(session.id, content, revision);
+      await this.openCodeService.syncActiveFile(session.id, content, revision, diff.libraryId);
       this.diffs.update(items => items.filter(item => item.file !== diff.file));
       this.validation.set(null);
       this.liveBaselines.delete(diff.file);
@@ -713,14 +760,27 @@ export class AiTabComponent implements OnInit, OnDestroy {
 
   async respondToPermission(permission: OpenCodePermissionRequest, response: 'once' | 'always' | 'reject'): Promise<void> {
     const session = this.session();
-    if (!session) return;
+    if (!session || this.pendingApprovals().has(permission.id) || this.environmentStale()) return;
+    this.error.set(null);
+    this.pendingApprovals.update(ids => new Set(ids).add(permission.id));
     try {
+      const operation = permission.metadata?.['operation'] as OpenCodeFileOperation | undefined;
+      if (operation && response !== 'reject') await this.libraryWorkspace.applyOperation(operation);
       await this.openCodeService.respondToPermission(session.id, permission.id, response);
       this.permissions.update(items => items.filter(item => item.id !== permission.id));
     } catch (error) {
-      this.setError(error);
+      this.error.set(error instanceof Error ? error.message : String(error));
+    } finally {
+      this.pendingApprovals.update(ids => { const next = new Set(ids); next.delete(permission.id); return next; });
     }
   }
+
+  fileOperation(permission: OpenCodePermissionRequest): OpenCodeFileOperation | undefined {
+    return permission.metadata?.['operation'] as OpenCodeFileOperation | undefined;
+  }
+
+  isPermissionPending(id: string): boolean { return this.pendingApprovals().has(id); }
+
 
   toggleQuestionAnswer(request: OpenCodeQuestionRequest, index: number, label: string, multiple = false): void {
     this.questionAnswers.update(current => {
@@ -814,10 +874,11 @@ export class AiTabComponent implements OnInit, OnDestroy {
   private async loadCommandsAndFiles(): Promise<void> {
     const session = this.session();
     if (!session) return;
-    const [commands] = await Promise.all([
+    const [commands, files] = await Promise.all([
       this.openCodeService.getCommands(session.id),
       this.openCodeService.findFiles(session.id, ''),
     ]);
+    this.workspaceFiles.set(files);
     const names = new Set(WEB_COMMANDS.map(command => command.name));
     this.commands.set([...WEB_COMMANDS, ...commands.filter(command => !names.has(command.name))]);
   }
@@ -1098,6 +1159,14 @@ export class AiTabComponent implements OnInit, OnDestroy {
   }
 
   private handleEvent(event: OpenCodeEvent): void {
+    if (event.type === 'cql.workspace.files') {
+      this.workspaceFiles.set(event.properties['files'] as OpenCodeFileReference[]);
+      const activeFile = event.properties['activeFile'];
+      const activeLibraryId = event.properties['activeLibraryId'];
+      if (typeof activeFile === 'string') this.session.update(session => session ? { ...session, activeFile, activeLibraryId: typeof activeLibraryId === 'string' ? activeLibraryId : session.activeLibraryId } : session);
+      this.diffs.update(diffs => diffs.filter(diff => this.workspaceFiles().some(file => file.path === diff.file)));
+      return;
+    }
     if (event.type === 'cql.workspace.changed') {
       this.validation.set(null);
       if (!this.environmentStale()) {
@@ -1121,7 +1190,11 @@ export class AiTabComponent implements OnInit, OnDestroy {
     if (event.type === 'permission.updated' || event.type === 'permission.asked') {
       const raw = event.properties as Record<string, unknown>;
       const id = String(raw['id'] ?? raw['requestID'] ?? '');
-      if (id) this.permissions.update(items => [...items.filter(item => item.id !== id), { ...raw, id } as unknown as OpenCodePermissionRequest]);
+      if (id) {
+        const permission = { ...raw, id } as unknown as OpenCodePermissionRequest;
+        this.permissions.update(items => [...items.filter(item => item.id !== id), permission]);
+        if (permission.type === 'cql.create' && this.liveEditsEnabled() && !this.environmentStale()) void this.respondToPermission(permission, 'once');
+      }
       return;
     }
     if (event.type === 'permission.replied') {
@@ -1146,6 +1219,7 @@ export class AiTabComponent implements OnInit, OnDestroy {
     }
     if (event.type === 'session.idle') {
       this.status.set('idle');
+      this.workingFile.set(null);
       this.repairInFlight = false;
       void this.refreshDiff();
       return;
@@ -1183,13 +1257,16 @@ export class AiTabComponent implements OnInit, OnDestroy {
   }
 
   private handleWorkspaceChange(properties: Record<string, unknown>): void {
+    const changedFile = properties['file'];
+    if (typeof changedFile === 'string') this.workingFile.set(changedFile);
     if (!this.liveEditsEnabled()) return;
     const libraryId = typeof properties['libraryId'] === 'string' ? properties['libraryId'] : '';
     const file = typeof properties['file'] === 'string' ? properties['file'] : '';
     const content = typeof properties['content'] === 'string' ? properties['content'] : null;
     const baseRevision = Number(properties['baseRevision']);
-    const document = this.editorBridge.document();
-    if (!content || !document || document.libraryId !== libraryId) return;
+    const library = this.libraryWorkspace.get(libraryId);
+    const document = this.editorBridge.documents().get(libraryId) ?? (library ? { content: library.cqlContent, userRevision: 0 } : undefined);
+    if (content === null || !document) return;
     if (!Number.isFinite(baseRevision) || baseRevision !== document.userRevision) {
       this.liveEditsEnabled.set(false);
       this.liveConflict.set('Live edits paused because the CQL document changed after OpenCode started. Review the workspace diff before applying it.');
@@ -1201,25 +1278,23 @@ export class AiTabComponent implements OnInit, OnDestroy {
 
   private contextForPrompt(session: OpenCodeSession): OpenCodeEditorContext | null {
     const context = this.inlineContext() ?? this.selectedContext();
-    if (!context || context.libraryId !== session.activeLibraryId) return null;
-    return { ...context, file: session.activeFile };
+    const file = this.workspaceFiles().find(file => file.libraryId === context?.libraryId && file.writable);
+    if (!context || !file) return null;
+    return { ...context, file: file.path };
   }
 
   private async syncActiveEditor(session: OpenCodeSession): Promise<void> {
-    const active = this.activeLibrary();
-    if (!active || active.id !== session.activeLibraryId) {
-      throw new OpenCodeApiError({
-        code: 'ACTIVE_LIBRARY_CHANGED',
-        message: 'This OpenCode session belongs to a different library. Start a new session for the active library.',
-        retryable: false,
-      }, 409);
+    await this.membershipSync;
+    for (const file of this.workspaceFiles()) {
+      if (!file.writable || !file.libraryId) continue;
+      if (this.diffs().some(diff => diff.file === file.path)) continue;
+      const library = this.libraryWorkspace.get(file.libraryId);
+      if (!library) continue;
+      const document = this.editorBridge.documents().get(library.id);
+      const content = document?.content ?? library.cqlContent;
+      await this.openCodeService.syncActiveFile(session.id, content, document?.userRevision ?? 0, library.id);
     }
-    const document = this.editorBridge.document();
-    const content = document?.libraryId === active.id ? document.content : active.cqlContent;
-    const revision = document?.libraryId === active.id ? document.userRevision : 0;
-    if (document?.libraryId !== active.id) this.editorBridge.recordDocument(active.id, content, revision);
-    this.savedDiffFiles.update(files => { const next = new Set(files); next.delete(session.activeFile); return next; });
-    await this.openCodeService.syncActiveFile(session.id, content, revision);
+    this.savedDiffFiles.set(new Set());
   }
 
   private ingestMessageInfo(info?: Record<string, unknown>): void {
@@ -1258,6 +1333,13 @@ export class AiTabComponent implements OnInit, OnDestroy {
       });
     } else if (part['type'] === 'tool') {
       const state = part['state'] ?? {};
+      if (state.status === 'running' && ['edit', 'write'].includes(String(part['tool']))) {
+        const file = state.input?.filePath ?? state.input?.file;
+        if (typeof file === 'string') {
+          const member = this.workspaceFiles().find(item => file === item.path || file.endsWith('/' + item.path));
+          if (member) this.workingFile.set(member.path);
+        }
+      }
       this.upsertActivity({
         id: partId, messageId, kind: 'tool', title: state.title || part['tool'] || 'Tool',
         status: state.status || 'pending',
@@ -1288,6 +1370,7 @@ export class AiTabComponent implements OnInit, OnDestroy {
     }, true);
     if (
       validation.valid
+      || this.status() === 'busy'
       || this.diffs().length === 0
       || this.repairInFlight
       || this.repairAttempts() >= 2
@@ -1324,6 +1407,7 @@ export class AiTabComponent implements OnInit, OnDestroy {
     this.status.set(state.session.status);
     this.reasoningEnabled.set(state.session.reasoningEnabled);
     this.diffs.set(state.diffs);
+    if (state.files) this.workspaceFiles.set(state.files);
     this.attachments.set(state.attachments ?? []);
     this.validation.set(state.validation);
     this.permissions.set(state.permissions ?? []);
@@ -1381,6 +1465,9 @@ export class AiTabComponent implements OnInit, OnDestroy {
     this.autoSendInlineRequest.set(false);
     this.liveConflict.set(null);
     this.liveBaselines.clear();
+    this.membershipKey = '';
+    this.workspaceFiles.set([]);
+    this.workingFile.set(null);
     this.savedDiffFiles.set(new Set());
     this.savingDiffFiles.set(new Set());
     this.timelineSequence = 0;
@@ -1461,23 +1548,24 @@ export class AiTabComponent implements OnInit, OnDestroy {
       canonicalUrl: library.url,
       cqlContent: library.cqlContent,
       originalContent: library.originalContent,
+      documentRevision: this.editorBridge.documents().get(library.id)?.userRevision ?? 0,
       fhirVersionId: library.library?.meta?.versionId,
       workspaceOrigin: library.workspaceOrigin,
     };
   }
 
   private contentForLibrary(library: LibraryResource): string {
-    const document = this.editorBridge.document();
-    return document?.libraryId === library.id ? document.content : library.cqlContent;
+    return this.editorBridge.documents().get(library.id)?.content ?? library.cqlContent;
   }
 
   private problemsContext(session: OpenCodeSession): OpenCodeIdeDiagnostics | undefined {
     const active = this.activeLibrary();
-    const document = this.editorBridge.document();
-    if (!active || !document || active.id !== session.activeLibraryId || document.libraryId !== active.id) return undefined;
+    const document = active ? this.editorBridge.documents().get(active.id) : undefined;
+    const file = this.workspaceFiles().find(file => file.libraryId === active?.id);
+    if (!active || !document || !file) return undefined;
     return buildOpenCodeProblemsContext({
       libraryId: active.id,
-      file: session.activeFile,
+      file: file.path,
       documentRevision: document.userRevision,
       problems: this.ideStateService.editorState().syntaxErrors,
     });

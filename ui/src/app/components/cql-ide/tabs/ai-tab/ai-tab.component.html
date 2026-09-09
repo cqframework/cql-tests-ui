@@ -23,8 +23,8 @@
     </div>
     @if (session()) {
       <div class="d-flex align-items-center gap-2">
-        <label class="reasoning-toggle small" title="Mirror OpenCode workspace changes into the active editor without saving">
-          <input type="checkbox" [ngModel]="liveEditsEnabled()" (ngModelChange)="toggleLiveEdits($event)" [disabled]="environmentStale() || sessionArchived()">
+        <label class="reasoning-toggle small" title="Follow edits across library tabs; automatically create and save new libraries">
+          <input id="opencode-live-edits" type="checkbox" [ngModel]="liveEditsEnabled()" (ngModelChange)="toggleLiveEdits($event)" [disabled]="environmentStale() || sessionArchived()">
           Live edits
         </label>
         <label class="reasoning-toggle small" title="Enable the model's thinking variant for subsequent prompts">
@@ -36,6 +36,9 @@
         </button>
       </div>
     }
+      @if (workingFile(); as file) {
+        <div id="opencode-working-file" class="small text-body-secondary" role="status"><i class="bi bi-pencil me-1"></i>Working on {{ file }}</div>
+      }
   </header>
 
   @if (!isAvailable()) {
@@ -49,7 +52,7 @@
       <i class="bi bi-folder2-open fs-1 text-secondary"></i>
       <h5>Start an isolated workspace</h5>
       @if (activeLibrary(); as library) {
-        <p class="text-body-secondary">OpenCode will receive a draft snapshot of <strong>{{ library.name }}</strong> and its open CQL dependencies.</p>
+        <p class="text-body-secondary">OpenCode will receive a draft snapshot of <strong>{{ library.name }}</strong> as the main file, together with all other open CQL libraries.</p>
         @if (library.workspaceOrigin; as origin) {
           <small id="opencode-workspace-origin" class="text-body-secondary">
             Opened from workspace <strong>{{ origin.workspaceName }}</strong>.
@@ -78,7 +81,7 @@
           } @empty { <p class="small text-body-secondary mb-0 mt-2">No archived sessions exist for the active Library.</p> }
         </section>
       }
-      <small class="text-body-secondary">Only the active CQL file is writable. Dependencies and every MCP integration are read-only.</small>
+      <small class="text-body-secondary">All open CQL libraries join the workspace. Review changes per file; new libraries and renames are saved through CQL Studio.</small>
     </div>
   } @else {
     @if (sessionArchived()) {
@@ -183,6 +186,10 @@
         </section>
       }
 
+      @if (diffs().length && status() !== 'busy') {
+        <div id="opencode-review-files" class="alert alert-info">Review each changed file below. Accept and save or discard each file independently.</div>
+      }
+
       @for (permission of permissions(); track permission.id) {
         <section class="permission-card border border-warning rounded p-3 my-3">
           <div class="d-flex align-items-start gap-2">
@@ -190,10 +197,15 @@
             <div class="flex-grow-1 min-w-0">
               <strong>{{ permission.title || permission.type }}</strong>
               @if (permission.pattern) { <div class="small font-monospace text-break mt-1">{{ permission.pattern }}</div> }
+              @if (fileOperation(permission); as operation) {
+                <details class="mt-2"><summary>Review CQL to be saved</summary><pre>{{ operation.content }}</pre></details>
+              }
               <div class="d-flex flex-wrap gap-2 mt-3">
-                <button type="button" class="btn btn-sm btn-primary" (click)="respondToPermission(permission, 'once')">Allow once</button>
-                <button type="button" class="btn btn-sm btn-outline-primary" (click)="respondToPermission(permission, 'always')">Always allow</button>
-                <button type="button" class="btn btn-sm btn-outline-danger" (click)="respondToPermission(permission, 'reject')">Reject</button>
+                <button [id]="'opencode-accept-' + permission.id" type="button" class="btn btn-sm btn-primary" [disabled]="isPermissionPending(permission.id) || environmentStale()" (click)="respondToPermission(permission, 'once')">{{ isPermissionPending(permission.id) ? 'Saving…' : 'Accept' }}</button>
+                @if (!permission.type?.startsWith('cql.')) {
+                  <button type="button" class="btn btn-sm btn-outline-primary" (click)="respondToPermission(permission, 'always')">Always allow</button>
+                }
+                <button [id]="'opencode-reject-' + permission.id" type="button" class="btn btn-sm btn-outline-danger" [disabled]="isPermissionPending(permission.id) || environmentStale()" (click)="respondToPermission(permission, 'reject')">Reject</button>
               </div>
             </div>
           </div>
@@ -229,18 +241,18 @@
             <div class="min-w-0"><strong class="text-truncate d-block">{{ diff.file }}</strong><small class="text-success">+{{ diff.additions }}</small><small class="text-danger ms-2">−{{ diff.deletions }}</small></div>
             <div class="d-flex gap-1 flex-shrink-0">
               @if (wasLiveApplied(diff.file)) {
-                <button type="button" class="btn btn-sm btn-outline-danger" [disabled]="environmentStale()" (click)="revertChange(diff)">Revert</button>
-                <button type="button" class="btn btn-sm btn-outline-primary" [disabled]="environmentStale()" (click)="applyLocally(diff)">Keep locally</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" [disabled]="environmentStale() || status() === 'busy' || isDiffSaving(diff.file)" (click)="revertChange(diff)">Revert</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" [disabled]="environmentStale() || status() === 'busy' || isDiffSaving(diff.file)" (click)="applyLocally(diff)">Keep locally</button>
               } @else {
-                <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="environmentStale()" (click)="discardChange(diff)">Discard</button>
-                <button type="button" class="btn btn-sm btn-outline-primary" [disabled]="environmentStale()" (click)="applyLocally(diff)">Apply locally</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" [id]="'opencode-discard-' + diff.libraryId" [disabled]="status() === 'busy' || environmentStale() || isDiffSaving(diff.file)" (click)="discardChange(diff)">Discard</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" [disabled]="environmentStale() || status() === 'busy' || isDiffSaving(diff.file)" (click)="applyLocally(diff)">Apply locally</button>
               }
               @if (isDiffSaved(diff.file)) {
                 <button type="button" class="btn btn-sm btn-secondary" disabled title="This OpenCode change was saved to FHIR">
                   <i class="bi bi-check-circle-fill me-1"></i>Saved
                 </button>
               } @else {
-                <button type="button" class="btn btn-sm btn-success" [disabled]="!canApplyAndSave() || isDiffSaving(diff.file)" (click)="applyAndSave(diff)"
+                <button type="button" class="btn btn-sm btn-success" [id]="'opencode-save-' + diff.libraryId" [disabled]="status() === 'busy' || environmentStale() || isDiffSaving(diff.file)" (click)="applyAndSave(diff)"
                   [title]="vsacReferenceCount(diff) > 0 ? 'Apply the CQL change, import its VSAC ValueSets to the configured terminology server, and save the Library' : 'Apply the CQL change and save the Library'">
                   @if (isDiffSaving(diff.file)) { <span class="spinner-border spinner-border-sm me-1"></span>Saving… }
                   @else {
@@ -344,7 +356,7 @@
           </div>
         } @else if (fileSuggestions().length) {
           <div class="suggestion-menu">
-            @for (file of fileSuggestions(); track file.path) { <button type="button" (click)="chooseFile(file)"><code>&#64;{{ file.path }}</code><span>{{ file.writable ? 'Active library' : 'Read-only dependency' }}</span></button> }
+            @for (file of fileSuggestions(); track file.path) { <button type="button" (click)="chooseFile(file)"><code>&#64;{{ file.path }}</code><span>{{ file.writable ? 'Workspace library' : 'Read-only dependency' }}</span></button> }
           </div>
         }
       </div>

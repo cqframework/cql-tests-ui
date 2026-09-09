@@ -1,5 +1,7 @@
 // Author: Preston Lee
 
+import { openCodeFileTools, OpenCodeFileToolNames } from '@cql-studio/core';
+
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'node:crypto';
@@ -136,7 +138,7 @@ export function createOpenCodeGateway(env: ServerEnv): Router {
   // only by the runner's stdio MCP subprocess, never by the browser.
   router.get('/tool-bridge/tools', asyncHandler(async (req, res) => {
     requireCapability(req);
-    res.json(await toolExecutor.definitions());
+    res.json([...(await toolExecutor.definitions()), ...openCodeFileTools]);
   }));
 
   router.post('/tool-bridge/execute', asyncHandler(async (req, res) => {
@@ -145,7 +147,12 @@ export function createOpenCodeGateway(env: ServerEnv): Router {
     if (!name) throw new OpenCodeError('INVALID_TOOL_REQUEST', 'Tool name is required', 400, false);
     const started = Date.now();
     try {
-      const result = await toolExecutor.execute(name, req.body?.arguments, session);
+      const result = Object.values(OpenCodeFileToolNames).includes(name)
+        ? await (await runnerFetch(`/sessions/${encodeURIComponent(session.id)}/file-operation`, {
+          method: 'POST', body: JSON.stringify({ name, arguments: req.body?.arguments }),
+          signal: AbortSignal.timeout(60 * 60 * 1000),
+        })).json()
+        : await toolExecutor.execute(name, req.body?.arguments, session);
       openCodeLogger.info({ operation: 'tool.execute', sessionId: session.id, tool: name, durationMs: Date.now() - started, status: 'ok' }, 'OpenCode tool completed');
       res.json(result);
     } catch (error) {
@@ -467,6 +474,8 @@ export function createOpenCodeGateway(env: ServerEnv): Router {
       : undefined;
     const authorizedWorkspaceOrigin = await authorizeWorkspaceOrigin(req, storedOrigin, input.activeLibrary.id);
     const archivedState = row.state as unknown as OpenCodeSessionStateDto;
+    const currentIds = new Set([input.activeLibrary.id, ...(input.libraries ?? []).map(library => library.id)]);
+    input.libraries = [...(input.libraries ?? []), ...(archivedState.libraries ?? []).filter(library => !currentIds.has(library.id))];
     const seedMessages = openCodeResumeMessages(
       Array.isArray(archivedState.messages) ? archivedState.messages : []
     );
@@ -593,11 +602,26 @@ export function createOpenCodeGateway(env: ServerEnv): Router {
     schedulePersist(session);
   }));
 
+  router.post('/sessions/:id/libraries', asyncHandler(async (req, res) => {
+    const session = requireOwnedSession(req);
+    await runnerFetch(`/sessions/${encodeURIComponent(req.params.id)}/libraries`, {
+      method: 'POST', body: JSON.stringify({ libraries: req.body?.libraries }),
+    });
+    schedulePersist(session);
+    res.status(204).send();
+  }));
+  router.delete('/sessions/:id/libraries/:libraryId', asyncHandler(async (req, res) => {
+    const session = requireOwnedSession(req);
+    await runnerFetch(`/sessions/${encodeURIComponent(req.params.id)}/libraries/${encodeURIComponent(req.params.libraryId)}`, { method: 'DELETE' });
+    schedulePersist(session);
+    res.status(204).send();
+  }));
+
   router.put('/sessions/:id/active-file', asyncHandler(async (req, res) => {
     const session = requireOwnedSession(req);
     const response = await runnerFetch(`/sessions/${encodeURIComponent(req.params.id)}/active-file`, {
       method: 'PUT',
-      body: JSON.stringify({ content: req.body?.content, documentRevision: req.body?.documentRevision }),
+      body: JSON.stringify({ content: req.body?.content, documentRevision: req.body?.documentRevision, libraryId: req.body?.libraryId }),
     });
     res.status(204);
     await response.arrayBuffer();
@@ -646,7 +670,7 @@ export function createOpenCodeGateway(env: ServerEnv): Router {
   for (const action of ['abort', 'validate'] as const) {
     router.post(`/sessions/:id/${action}`, asyncHandler(async (req, res) => {
       const session = requireOwnedSession(req);
-      const response = await runnerFetch(`/sessions/${encodeURIComponent(req.params.id)}/${action}`, { method: 'POST' });
+      const response = await runnerFetch(`/sessions/${encodeURIComponent(req.params.id)}/${action}`, { method: 'POST', body: JSON.stringify({ file: req.body?.file }) });
       res.status(action === 'abort' ? 200 : 200).json(await response.json());
       schedulePersist(session);
     }));

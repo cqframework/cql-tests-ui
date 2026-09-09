@@ -215,6 +215,7 @@ test('materializes a writable draft, read-only dependencies, MCP config, and a r
     assert.match(vsacSkill, /This skill is read-only/);
     assert.deepEqual(manager.references(workspace, 'Shared'), [{
       path: 'dependencies/Shared.cql',
+      libraryId: 'Shared',
       name: 'Shared.cql',
       writable: false,
     }]);
@@ -393,4 +394,52 @@ test('stores text attachments as read-only session files and rejects unsupported
   } finally {
     await manager.remove(workspace);
   }
+});
+
+
+test('keeps multiple libraries independently reviewable and promotes later-opened dependencies', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'cql-multifile-'));
+  const manager = new OpenCodeWorkspaceManager(root);
+  const library = (id: string) => ({ id, name: id, cqlContent: `library ${id}\ndefine Value: 1` });
+  const workspace = await manager.create({ ollamaBaseUrl: 'http://localhost:11434', ollamaModel: 'test',
+    activeLibrary: library('Main'), libraries: [library('Other')], dependencies: [library('Later')] });
+  try {
+    await writeFile(manager.resolveReference(workspace, 'libraries/Main.cql'), 'library Main\ndefine Value: 2');
+    await writeFile(manager.resolveReference(workspace, 'libraries/Other.cql'), 'library Other\ndefine Value: 3');
+    assert.deepEqual((await manager.diff(workspace)).map(diff => diff.libraryId), ['Main', 'Other']);
+    await manager.syncActiveFile(workspace, library('Other').cqlContent, 'Other');
+    assert.deepEqual((await manager.diff(workspace)).map(diff => diff.libraryId), ['Main']);
+    await manager.addLibrary(workspace, library('Later'));
+    assert.equal(workspace.manifest.files['dependencies/Later.cql'], undefined);
+    assert.equal(workspace.manifest.files['libraries/Later.cql'].writable, true);
+    assert.equal((await manager.diff(workspace)).length, 1, 'Adding a file must preserve pending edits');
+    await manager.addLibrary(workspace, library('Main'));
+    assert.equal((await manager.diff(workspace)).length, 1, 'Repeated membership sync must not overwrite edits');
+    await assert.rejects(manager.syncActiveFile(workspace, '', 'missing'));
+  } finally { await manager.remove(workspace); await rm(root, { recursive: true, force: true }); }
+});
+
+test('creates and renames only approved managed files while preserving library identity', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'cql-file-operations-'));
+  const manager = new OpenCodeWorkspaceManager(root);
+  const workspace = await manager.create({ ollamaBaseUrl: 'http://localhost:11434', ollamaModel: 'test',
+    activeLibrary: { id: 'main-id', name: 'Main', cqlContent: 'library Main' } });
+  try {
+    const create = manager.prepareOperation(workspace, 'create', { name: 'Shared', content: 'library Shared' });
+    assert.equal(workspace.manifest.files[create.file], undefined, 'Preparation must not create a file');
+    await manager.completeOperation(workspace, create);
+    assert.equal(workspace.manifest.files[create.file].libraryId, create.libraryId);
+    const rename = manager.prepareOperation(workspace, 'rename', { file: workspace.activeFile, name: 'Renamed', content: 'library Renamed' });
+    assert.equal(workspace.activeFile, 'libraries/Main.cql', 'Preparation must not rename a file');
+    await manager.completeOperation(workspace, rename);
+    assert.equal(workspace.activeFile, 'libraries/Renamed.cql');
+    assert.equal(workspace.manifest.files[workspace.activeFile].libraryId, 'main-id');
+    assert.equal((await manager.diff(workspace)).length, 0);
+    assert.match(await readFile(path.join(workspace.directory, '.opencode/commands/validate.md'), 'utf8'), /Renamed.cql/);
+    assert.throws(() => manager.prepareOperation(workspace, 'create', { name: '../Escape', content: 'library Escape' }));
+    assert.throws(() => manager.prepareOperation(workspace, 'create', { name: 'shared', content: 'library shared' }));
+    await manager.removeLibrary(workspace, create.libraryId);
+    assert.equal(workspace.manifest.files[create.file], undefined);
+    assert.equal((await stat(path.join(workspace.directory, 'libraries'))).mode & 0o777, 0o500);
+  } finally { await manager.remove(workspace); await rm(root, { recursive: true, force: true }); }
 });

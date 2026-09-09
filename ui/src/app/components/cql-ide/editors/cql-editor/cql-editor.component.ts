@@ -30,6 +30,7 @@ import {
 } from '../../../../services/elm-locator.lib';
 import { CqlIdeLibraryOpenerService } from '../../../../services/cql-ide-library-opener.service';
 import { SettingsService } from '../../../../services/settings.service';
+import { OpenCodeEditorBridgeService } from '../../../../services/opencode-editor-bridge.service';
 import { OpenCodeService } from '../../../../services/opencode.service';
 import { OpenCodeEditorContext } from '../../../../models/opencode.model';
 import {
@@ -206,6 +207,7 @@ export class CqlEditorComponent implements AfterViewInit, OnDestroy, IdeEditor {
 
   private ideStateService = inject(IdeStateService);
   private settingsService = inject(SettingsService);
+  private readonly openCodeEditorBridge = inject(OpenCodeEditorBridgeService);
   private openCodeService = inject(OpenCodeService);
   private cqlFormatterService = inject(CqlFormatterService);
   private cqlValidationService = inject(CqlValidationService);
@@ -428,6 +430,7 @@ export class CqlEditorComponent implements AfterViewInit, OnDestroy, IdeEditor {
   }
 
   private initializeEditor(): void {
+    this.userRevision = this.openCodeEditorBridge.documents().get(this.libraryId())?.userRevision ?? this.userRevision;
     if (this.isInitializing) {
       return;
     }

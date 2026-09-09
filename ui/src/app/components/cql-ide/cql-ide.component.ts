@@ -16,6 +16,7 @@ import { TranslationService } from '../../services/translation.service';
 import { LibraryTranslationContextBuilder } from '../../services/library-translation-context.lib';
 import { CqlExecutionService } from '../../services/cql-execution.service';
 import { SettingsService } from '../../services/settings.service';
+import { OpenCodeLibraryWorkspaceService } from '../../services/opencode-library-workspace.service';
 import { OpenCodeService } from '../../services/opencode.service';
 import { OpenCodeEditorBridgeService } from '../../services/opencode-editor-bridge.service';
 import { OpenCodeEditorContext, OpenCodeLibraryChange } from '../../models/opencode.model';
@@ -26,6 +27,7 @@ import {
   PendingLibraryOpen,
 } from '../../services/cql-ide-library-opener.service';
 import type { Library } from 'fhir/r4';
+import type { LibraryResource } from './shared/ide-types';
 import { firstValueFrom } from 'rxjs';
 import { IdeExecutionSubject } from '../../models/ide-context.model';
 import { encodeUtf8Base64 } from '../../services/utf8-encoding.lib';
@@ -78,6 +80,7 @@ export class CqlIdeComponent implements OnInit, OnDestroy {
   private libraryTranslationContextBuilder = inject(LibraryTranslationContextBuilder);
   private cqlExecutionService = inject(CqlExecutionService);
   public settingsService = inject(SettingsService);
+  private readonly openCodeLibraryWorkspace = inject(OpenCodeLibraryWorkspaceService);
   private openCodeService = inject(OpenCodeService);
   private openCodeEditorBridge = inject(OpenCodeEditorBridgeService);
   private cqlValidationService = inject(CqlValidationService);
@@ -92,7 +95,7 @@ export class CqlIdeComponent implements OnInit, OnDestroy {
       if (!active) return;
       untracked(() => {
         const current = this.openCodeEditorBridge.document();
-        const revision = current?.libraryId === active.id ? current.userRevision : 0;
+        const revision = this.openCodeEditorBridge.documents().get(active.id)?.userRevision ?? 0;
         if (current?.libraryId !== active.id || current.content !== active.cqlContent) {
           this.openCodeEditorBridge.recordDocument(active.id, active.cqlContent, revision);
         }
@@ -659,10 +662,11 @@ export class CqlIdeComponent implements OnInit, OnDestroy {
   }
 
   async onApplyOpenCodeChange(change: OpenCodeLibraryChange): Promise<void> {
-    const library = this.ideStateService.libraryResources().find(item => item.id === change.libraryId);
-    if (!library) {
+    let library: LibraryResource;
+    try { library = await this.openCodeLibraryWorkspace.open(change.libraryId); }
+    catch (error) {
       change.onSaveComplete?.(false);
-      this.toastService.showError('The library changed by OpenCode is no longer open.', 'OpenCode');
+      this.toastService.showError(error instanceof Error ? error.message : String(error), 'OpenCode');
       return;
     }
     if (library.isReadOnly) {
@@ -675,13 +679,15 @@ export class CqlIdeComponent implements OnInit, OnDestroy {
       this.ideStateService.selectLibraryResource(library.id);
       const editor = this.cqlEditors().find(candidate => candidate.libraryId() === library.id);
       if (!editor) {
-        this.toastService.showError('The active CQL editor is not available for live OpenCode edits.', 'OpenCode');
+        this.ideStateService.updateLibraryResource(library.id, { cqlContent: change.cqlContent, isDirty: change.cqlContent !== library.originalContent });
+        this.openCodeEditorBridge.recordDocument(library.id, change.cqlContent, change.baseRevision ?? 0);
         return;
       }
       editor.applyAiContent(change.cqlContent);
       return;
     }
 
+    let elmXml: string | undefined;
     if (change.save !== false) {
       const candidate = { ...library, cqlContent: change.cqlContent, isDirty: true };
       const translation = await this.translationService.translateCqlToElmAsync(
@@ -701,6 +707,7 @@ export class CqlIdeComponent implements OnInit, OnDestroy {
         change.onSaveComplete?.(false);
         return;
       }
+      elmXml = translation.elmXml;
     }
 
     this.ideStateService.selectLibraryResource(library.id);
@@ -713,15 +720,14 @@ export class CqlIdeComponent implements OnInit, OnDestroy {
       this.toastService.showWarning(`Applied OpenCode changes to ${library.name} locally. The library remains unsaved.`, 'OpenCode');
       return;
     }
-    await this.onSaveLibrary({ skipVsacImport: change.vsacTerminologyReady });
-
-    const saved = this.ideStateService.libraryResources().find(item => item.id === library.id);
-    if (saved?.isDirty) {
-      change.onSaveComplete?.(false);
-      this.toastService.showWarning('The OpenCode change was applied locally, but the library was not saved.', 'OpenCode');
-    } else {
+    try {
+      await this.openCodeLibraryWorkspace.save({ ...library, cqlContent: change.cqlContent }, change.cqlContent, elmXml);
+      this.invalidateLibrarySourceCache(library, change.cqlContent);
       change.onSaveComplete?.(true);
       this.toastService.showSuccess(`Applied and saved OpenCode changes to ${library.name}.`, 'OpenCode');
+    } catch (error) {
+      change.onSaveComplete?.(false);
+      this.toastService.showError(error instanceof Error ? error.message : String(error), 'OpenCode');
     }
   }
 
@@ -742,9 +748,7 @@ export class CqlIdeComponent implements OnInit, OnDestroy {
         cqlContent: currentContent,
         isDirty: isDirty
       });
-      if (this.ideStateService.activeLibraryId() === libraryId) {
-        this.openCodeEditorBridge.recordDocument(libraryId, currentContent, event.userRevision);
-      }
+      this.openCodeEditorBridge.recordDocument(libraryId, currentContent, event.userRevision);
     }
   }
 
