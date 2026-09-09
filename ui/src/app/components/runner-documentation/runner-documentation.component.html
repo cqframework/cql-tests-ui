@@ -51,31 +51,37 @@
               <h2 class="h4 mb-0">CQL Test Runner Overview</h2>
             </div>
             <div class="card-body">
-              <p class="lead">The CQL Test Runner is a powerful tool for executing CQL (Clinical Quality Language) tests against FHIR servers and analyzing the results.</p>
+              <p class="lead">The CQL Test Runner UI submits jobs to a CQL Tests Runner API service, which executes the
+                community <a href="https://github.com/cqframework/cql-tests" target="_blank" rel="noopener">cql-tests</a>
+                suites against a FHIR server that exposes CQL evaluation operations.</p>
 
               <h3>What is the CQL Test Runner?</h3>
-              <p>The CQL Test Runner is an asynchronous testing system that allows you to:</p>
+              <p>The runner is an HTTP client to a FHIR server, not a built-in CQL engine. Engine and translator names
+                you configure are recorded as metadata on the results. From this UI you can:</p>
               <ul>
-                <li><strong>Execute CQL Tests</strong> - Run comprehensive test suites against FHIR servers</li>
-                <li><strong>Configure Test Parameters</strong> - Customize FHIR server settings, build options, and test behavior</li>
+                <li><strong>Execute CQL Tests</strong> - Run the shared language test suites against a configured FHIR server</li>
+                <li><strong>Configure Test Parameters</strong> - Set FHIR server settings, CQL version metadata, and skip/only lists</li>
                 <li><strong>Manage Test Jobs</strong> - Create, monitor, and track long-running test executions</li>
-                <li><strong>Analyze Results</strong> - Download and view detailed test results with pass/fail status</li>
-                <li><strong>Skip Specific Tests</strong> - Configure skip lists for tests that should be excluded</li>
+                <li><strong>Analyze Results</strong> - Download JSON results and open them in the results viewer</li>
+                <li><strong>Skip or Whitelist Tests</strong> - Exclude specific tests or restrict a run to a named set</li>
               </ul>
 
               <h3>Key Features</h3>
               <div class="row">
                 <div class="col-md-6">
                   <h4><i class="bi bi-server me-2"></i>FHIR Server Integration</h4>
-                  <p>Connect to any FHIR R4 server and execute CQL operations using the <code>$cql</code> operation.</p>
+                  <p>Call a FHIR R4 server using <code>$cql</code> (system-level) or <code>$evaluate</code>
+                    (Library/$evaluate). Expression tests use <code>$cql</code> by default; library-style tests require
+                    <code>$evaluate</code>.</p>
                 </div>
                 <div class="col-md-6">
                   <h4><i class="bi bi-gear me-2"></i>Flexible Configuration</h4>
-                  <p>Configure CQL file versions, output paths, and debug options through an intuitive interface.</p>
+                  <p>Configure CQL file version, CQL language version filtering, engine/translator metadata, and debug
+                    options through the form or JSON editor.</p>
                 </div>
                 <div class="col-md-6">
                   <h4><i class="bi bi-clock me-2"></i>Asynchronous Execution</h4>
-                  <p>Run tests as background jobs with real-time status monitoring and progress tracking.</p>
+                  <p>Run tests as background jobs with status polling and elapsed-time tracking.</p>
                 </div>
                 <div class="col-md-6">
                   <h4><i class="bi bi-download me-2"></i>Results Management</h4>
@@ -85,15 +91,18 @@
 
               <h3>Workflow Overview</h3>
               <ol>
-                <li><strong>Configure Settings</strong> - Set up FHIR server connection and test parameters</li>
+                <li><strong>Configure Settings</strong> - Set the runner API URL under Settings, then configure the FHIR
+                  server and test parameters on this page</li>
                 <li><strong>Create Test Job</strong> - Submit a test execution request to the runner service</li>
-                <li><strong>Monitor Progress</strong> - Track job status and progress in real-time</li>
+                <li><strong>Monitor Progress</strong> - Track job status while the service runs the suites</li>
                 <li><strong>Download Results</strong> - Retrieve test results when the job completes</li>
-                <li><strong>Analyze Results</strong> - Use the results viewer to examine test outcomes</li>
+                <li><strong>Analyze Results</strong> - Use the results viewer to examine pass/fail/skip/error outcomes</li>
               </ol>
 
               <div class="alert alert-info">
-                <strong>Note:</strong> The CQL Test Runner requires a running CQL Test Runner API service. Make sure the service is properly configured in your settings before attempting to run tests.
+                <strong>Note:</strong> A reachable CQL Tests Runner API must be configured (Settings → Runner) before you
+                can create jobs. The suites under test generally evaluate expressions only and do not retrieve patient
+                data from the FHIR server.
               </div>
             </div>
           </div>
@@ -106,7 +115,8 @@
               <h2 class="h4 mb-0">Configuration Options</h2>
             </div>
             <div class="card-body">
-              <p class="lead">The CQL Test Runner provides comprehensive configuration options to customize your test execution environment.</p>
+              <p class="lead">Configuration is submitted as JSON to the runner API. The form editor covers the common
+                fields; the JSON editor exposes the full schema (including path fields used by the CLI).</p>
 
               <h3>Configuration Sections</h3>
               
@@ -129,13 +139,14 @@
                   </tr>
                   <tr>
                     <td><code>CqlOperation</code></td>
-                    <td>FHIR operation for CQL execution</td>
+                    <td>FHIR operation used to evaluate tests. Allowed values: <code>$cql</code> or
+                      <code>$evaluate</code></td>
                     <td>Yes</td>
                     <td><code>$cql</code></td>
                   </tr>
                   <tr>
                     <td><code>ogBaseUrl</code></td>
-                    <td>Original base URL for fallback or reference</td>
+                    <td>Optional original base URL recorded for reference / fallback</td>
                     <td>No</td>
                     <td><code>https://example.com/fhir</code></td>
                   </tr>
@@ -154,52 +165,52 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>CQL File Version</code></td>
-                    <td>Version identifier for CQL files (semantic versioning)</td>
+                    <td><code>CqlFileVersion</code></td>
+                    <td>Version identifier stamped onto generated CQL artifacts (semantic versioning)</td>
                     <td>Yes</td>
                     <td><code>1.0.000</code></td>
                   </tr>
                   <tr>
-                    <td><code>CQL Output Path</code></td>
-                    <td>Directory path for CQL output files</td>
+                    <td><code>CqlOutputPath</code></td>
+                    <td>Directory path for CQL output files (used by the runner service / CLI; not shown in the form UI)</td>
                     <td>Yes</td>
                     <td><code>./cql</code></td>
                   </tr>
                   <tr>
-                    <td><code>CQL Version</code></td>
-                    <td>CQL engine version for version-based test filtering</td>
+                    <td><code>CqlVersion</code></td>
+                    <td>CQL language version used for version-based test filtering (skip tests outside the applicable range)</td>
                     <td>No</td>
                     <td><code>1.5.3</code></td>
                   </tr>
                   <tr>
                     <td><code>testsRunDescription</code></td>
-                    <td>Information about this test run</td>
+                    <td>Human-readable description recorded on the results file</td>
                     <td>No</td>
                     <td><code>Quick Test Run</code></td>
                   </tr>
                   <tr>
                     <td><code>cqlTranslator</code></td>
-                    <td>Which CQL translator is used in this test run</td>
+                    <td>Translator name recorded as results metadata</td>
                     <td>No</td>
-                    <td><code>cql4browsers</code></td>
+                    <td><code>cql-to-elm</code></td>
                   </tr>
                   <tr>
                     <td><code>cqlTranslatorVersion</code></td>
-                    <td>CQL translator version used in this test run</td>
+                    <td>Translator version recorded as results metadata</td>
                     <td>No</td>
                     <td><code>1.0.0</code></td>
                   </tr>
                   <tr>
                     <td><code>cqlEngine</code></td>
-                    <td>Which CQL engine is used in this test run</td>
+                    <td>Engine name recorded as results metadata (the server under test)</td>
                     <td>No</td>
-                    <td><code>cql4browsers</code></td>
+                    <td><code>Java CQFramework</code></td>
                   </tr>
                   <tr>
                     <td><code>cqlEngineVersion</code></td>
-                    <td>CQL engine version used in this test run</td>
+                    <td>Engine version recorded as results metadata</td>
                     <td>No</td>
-                    <td><code>1.0.0</code></td>
+                    <td><code>4.2.0</code></td>
                   </tr>
                 </tbody>
               </table>
@@ -215,8 +226,9 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>Quick Test</code></td>
-                    <td>Run only quick tests (skip long-running tests)</td>
+                    <td><code>QuickTest</code></td>
+                    <td>Smoke-test mode: run only the first test suite and its first group. Disable for a full run of
+                      all loaded suites.</td>
                     <td><code>true</code></td>
                   </tr>
                 </tbody>
@@ -235,19 +247,22 @@
                 <tbody>
                   <tr>
                     <td><code>ResultsPath</code></td>
-                    <td>Directory path where test results are stored</td>
+                    <td>Directory where the runner writes result JSON (service / CLI; not shown in the form UI)</td>
                     <td>Yes</td>
                     <td><code>./results</code></td>
                   </tr>
                   <tr>
                     <td><code>SkipList</code></td>
-                    <td>Array of test skip entries (testsName, groupName, testName, reason)</td>
+                    <td>Blacklist of exact test identities to skip (<code>testsName</code>, <code>groupName</code>,
+                      <code>testName</code>, <code>reason</code>). Matching is exact per triple; there is no suite- or
+                      group-level wildcard.</td>
                     <td>Yes (array, may be empty)</td>
                     <td><code>[]</code></td>
                   </tr>
                   <tr>
                     <td><code>OnlyList</code></td>
-                    <td>Optional whitelist: when non-empty, only these tests run (testsName, groupName, testName). SkipList still applies; a test listed in both is skipped.</td>
+                    <td>Optional whitelist of exact test identities. When non-empty, only listed tests run.
+                      SkipList still applies; a test listed in both is skipped.</td>
                     <td>No (omit or use <code>[]</code> for no whitelist)</td>
                     <td><code>[]</code></td>
                   </tr>
@@ -258,11 +273,14 @@
               <p>The runner supports two configuration modes:</p>
               <ul>
                 <li><strong>Form Editor</strong> - Visual form-based configuration with individual input fields</li>
-                <li><strong>JSON Editor</strong> - Direct JSON configuration editing for advanced users</li>
+                <li><strong>JSON Editor</strong> - Direct JSON configuration editing for advanced users (includes path
+                  fields and full schema)</li>
               </ul>
 
               <div class="alert alert-warning">
-                <strong>Tip:</strong> Use the JSON editor for complex configurations or when copying settings between environments. The form editor is recommended for most users.
+                <strong>Tip:</strong> Use the JSON editor for complex configurations or when copying settings between
+                environments. The form editor is recommended for most users. Leave <code>QuickTest</code> enabled for a
+                fast connectivity check, then disable it for a full suite run.
               </div>
             </div>
           </div>
@@ -281,65 +299,69 @@
               <h3>Execution Flow</h3>
               <ol>
                 <li><strong>Job Creation</strong> - Submit configuration to the runner service</li>
-                <li><strong>Validation</strong> - Verify configuration and server connectivity</li>
-                <li><strong>Test Preparation</strong> - Load CQL libraries and prepare test data</li>
-                <li><strong>Test Execution</strong> - Run individual CQL tests against the FHIR server</li>
-                <li><strong>Result Collection</strong> - Gather test results and compile summary</li>
-                <li><strong>Job Completion</strong> - Mark job as complete and make results available</li>
+                <li><strong>Validation</strong> - Verify configuration against the runner schema</li>
+                <li><strong>Test Preparation</strong> - Load suites from <code>cql-tests</code> and apply QuickTest /
+                  OnlyList / SkipList filters</li>
+                <li><strong>Test Execution</strong> - Evaluate each remaining test via <code>$cql</code> or
+                  <code>$evaluate</code> on the FHIR server</li>
+                <li><strong>Result Collection</strong> - Compare actual vs expected values and compile a summary</li>
+                <li><strong>Job Completion</strong> - Mark the job complete (or failed) and make results available</li>
               </ol>
 
-              <h3>Test Types</h3>
+              <h3>Quick Test vs Full Run</h3>
               <div class="row">
                 <div class="col-md-6">
-                  <h4>Quick Tests</h4>
-                  <p>Fast-running tests that validate basic CQL functionality:</p>
+                  <h4>Quick Test (<code>QuickTest: true</code>)</h4>
+                  <p>Smoke-test mode used by default in the UI:</p>
                   <ul>
-                    <li>Simple arithmetic operations</li>
-                    <li>Basic data type handling</li>
-                    <li>Elementary FHIR resource access</li>
-                    <li>Basic comparison operations</li>
+                    <li>Loads only the first suite in the test set</li>
+                    <li>Within that suite, loads only the first group</li>
+                    <li>Useful for verifying connectivity and configuration</li>
                   </ul>
                 </div>
                 <div class="col-md-6">
-                  <h4>Comprehensive Tests</h4>
-                  <p>Full test suites that include complex scenarios:</p>
+                  <h4>Full Run (<code>QuickTest: false</code>)</h4>
+                  <p>Runs every suite and group loaded by the runner:</p>
                   <ul>
-                    <li>Complex CQL expressions</li>
-                    <li>Multi-resource queries</li>
-                    <li>Performance testing</li>
-                    <li>Edge case validation</li>
+                    <li>All expression (and applicable library) tests</li>
+                    <li>Still respects SkipList, OnlyList, and CQL version gating</li>
+                    <li>Can take a long time depending on suite size and server latency</li>
                   </ul>
                 </div>
               </div>
 
               <h3>Test Results Structure</h3>
-              <p>Each test execution produces detailed results including:</p>
+              <p>Each completed job produces a JSON document matching the CQL Test Results schema, including:</p>
               <ul>
-                <li><strong>Test Status</strong> - Pass, fail, skip, or error</li>
-                <li><strong>Execution Time</strong> - How long the test took to run</li>
-                <li><strong>Error Messages</strong> - Detailed error information for failed tests</li>
-                <li><strong>Output Values</strong> - Actual vs expected values</li>
-                <li><strong>FHIR Response</strong> - Raw FHIR server response data</li>
+                <li><strong>Engine Metadata</strong> - <code>cqlengine</code> block with API URL, versions, and labels</li>
+                <li><strong>Summary Counts</strong> - pass, fail, skip, and error totals</li>
+                <li><strong>Per-Test Status</strong> - pass, fail, skip, or error</li>
+                <li><strong>Actual / Expected</strong> - Serialized values used for comparison (when present)</li>
+                <li><strong>Error Details</strong> - Message (and optional name/stack) for failures and errors</li>
+                <li><strong>HTTP Response Status</strong> - Optional status code from the FHIR operation call</li>
               </ul>
+              <p class="mb-0">Individual results do not include per-test execution duration.</p>
 
-              <h3>Skip List Management</h3>
-              <p>The skip list allows you to exclude specific tests from execution:</p>
+              <h3 class="mt-3">Skip List and Only List</h3>
+              <p>Both lists identify tests by the exact triple <code>testsName</code> + <code>groupName</code> +
+                <code>testName</code>:</p>
               <ul>
-                <li><strong>Test Suite Level</strong> - Skip entire test suites</li>
-                <li><strong>Group Level</strong> - Skip test groups within suites</li>
-                <li><strong>Individual Tests</strong> - Skip specific test cases</li>
-                <li><strong>Reason Tracking</strong> - Document why tests are skipped</li>
+                <li><strong>SkipList</strong> - Mark matching tests as skipped and record a reason</li>
+                <li><strong>OnlyList</strong> - When non-empty, skip every test not listed</li>
+                <li><strong>Precedence</strong> - A test present in both lists is skipped</li>
+                <li><strong>No wildcards</strong> - Omitting or leaving a field blank does not skip an entire suite or
+                  group; list each test explicitly</li>
               </ul>
 
               <h3>Performance Considerations</h3>
               <div class="alert alert-warning">
                 <strong>Important:</strong> Test execution time varies based on:
                 <ul class="mb-0 mt-2">
-                  <li>Number of tests in the suite</li>
+                  <li>Whether QuickTest is enabled</li>
+                  <li>Number of tests after SkipList / OnlyList filtering</li>
                   <li>Complexity of CQL expressions</li>
-                  <li>FHIR server response time</li>
+                  <li>FHIR server response time and load</li>
                   <li>Network latency</li>
-                  <li>Server load and capacity</li>
                 </ul>
               </div>
             </div>
@@ -353,7 +375,7 @@
               <h2 class="h4 mb-0">Job Management</h2>
             </div>
             <div class="card-body">
-              <p class="lead">The CQL Test Runner uses asynchronous job processing to handle long-running test executions.</p>
+              <p class="lead">The CQL Test Runner UI uses asynchronous job processing for long-running test executions.</p>
 
               <h3>Job Lifecycle</h3>
               <div class="row">
@@ -372,24 +394,25 @@
                 <div class="col-md-3">
                   <div class="text-center">
                     <div class="badge bg-success fs-6 mb-2">Completed</div>
-                    <p class="small">All tests finished successfully</p>
+                    <p class="small">Job finished without a runner failure (individual tests may still fail or error)</p>
                   </div>
                 </div>
                 <div class="col-md-3">
                   <div class="text-center">
                     <div class="badge bg-danger fs-6 mb-2">Failed</div>
-                    <p class="small">Job encountered an error</p>
+                    <p class="small">Job encountered an error before producing usable results</p>
                   </div>
                 </div>
               </div>
 
               <h3>Job Monitoring</h3>
-              <p>Once a job is created, you can monitor its progress in real-time:</p>
+              <p>Once a job is created, the UI monitors progress automatically:</p>
               <ul>
-                <li><strong>Status Updates</strong> - Automatic status polling every few seconds</li>
-                <li><strong>Progress Indicators</strong> - Visual progress bars and status badges</li>
-                <li><strong>Error Reporting</strong> - Immediate notification of any errors</li>
-                <li><strong>Completion Alerts</strong> - Notification when jobs finish</li>
+                <li><strong>Status Updates</strong> - Polls the runner API every 2 seconds while status is pending or
+                  running</li>
+                <li><strong>Progress Indicators</strong> - Status badges and elapsed-time display</li>
+                <li><strong>Error Reporting</strong> - Toast notification and error field when a job fails</li>
+                <li><strong>Completion Alerts</strong> - Toast notification when a job completes or fails</li>
               </ul>
 
               <h3>Job Information</h3>
@@ -403,27 +426,27 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td><code>Job ID</code></td>
+                    <td><code>jobId</code></td>
                     <td>Unique identifier for tracking the job</td>
                   </tr>
                   <tr>
-                    <td><code>Status</code></td>
+                    <td><code>status</code></td>
                     <td>Current execution status (pending, running, completed, failed)</td>
                   </tr>
                   <tr>
-                    <td><code>Created At</code></td>
+                    <td><code>createdAt</code></td>
                     <td>Timestamp when the job was created</td>
                   </tr>
                   <tr>
-                    <td><code>Completed At</code></td>
-                    <td>Timestamp when the job finished (if completed)</td>
+                    <td><code>completedAt</code></td>
+                    <td>Timestamp when the job finished (if completed or failed)</td>
                   </tr>
                   <tr>
-                    <td><code>Message</code></td>
+                    <td><code>message</code></td>
                     <td>Human-readable status message</td>
                   </tr>
                   <tr>
-                    <td><code>Error</code></td>
+                    <td><code>error</code></td>
                     <td>Error details (if the job failed)</td>
                   </tr>
                 </tbody>
@@ -441,11 +464,11 @@
               <div class="alert alert-info">
                 <strong>Tips for Job Management:</strong>
                 <ul class="mb-0 mt-2">
-                  <li>Monitor job status regularly during execution</li>
-                  <li>Download results promptly after completion</li>
+                  <li>Confirm the runner API health check succeeds before creating a job</li>
+                  <li>Start with QuickTest enabled, then disable it for a full suite run</li>
+                  <li>Download or view results soon after completion</li>
                   <li>Keep job IDs for reference and troubleshooting</li>
-                  <li>Use descriptive skip list reasons for documentation</li>
-                  <li>Test with quick tests before running comprehensive suites</li>
+                  <li>Use descriptive SkipList reasons so skipped tests are explainable later</li>
                 </ul>
               </div>
             </div>

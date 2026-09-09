@@ -1,7 +1,7 @@
 <div class="container mt-4">
   <div class="row">
     <div class="col-12">
-      <h1 class="mb-4">Launching CQL Test Results Viewer</h1>
+      <h1 class="mb-4">CQL Test Results Viewer Documentation</h1>
     </div>
   </div>
   
@@ -63,8 +63,9 @@
               <h2 class="h4 mb-0">Query Parameters</h2>
             </div>
             <div class="card-body">
-              <p class="lead">The application supports advanced query parameters for programmatic access and deep linking to
-                specific filtered views.</p>
+              <p class="lead">The results UI supports query parameters for loading data and deep-linking to filtered
+                views. Loading happens on <code>/results/open</code>; the viewer at <code>/results</code> applies filter
+                and organization parameters once results are loaded.</p>
 
               <h3>Supported Parameters</h3>
               <table class="table table-striped">
@@ -79,19 +80,27 @@
                 <tbody>
                   <tr>
                     <td><code>url</code></td>
-                    <td>URL to a JSON results file</td>
+                    <td>URL to a JSON results file. Accepted on <code>/results/open</code> and
+                      <code>/results</code>.</td>
                     <td>Valid HTTP/HTTPS URL</td>
                     <td><code>?url=https://api.example.com/results.json</code></td>
                   </tr>
                   <tr>
+                    <td><code>index</code></td>
+                    <td>URL to an index JSON file listing available result files. Handled on
+                      <code>/results/open</code>.</td>
+                    <td>Valid HTTP/HTTPS URL to index.json</td>
+                    <td><code>?index=https://api.example.com/index.json</code></td>
+                  </tr>
+                  <tr>
                     <td><code>status</code></td>
-                    <td>Initial status filter</td>
+                    <td>Initial status filter in the viewer</td>
                     <td>all, pass, fail, skip, error</td>
                     <td><code>?status=fail</code></td>
                   </tr>
                   <tr>
                     <td><code>search</code></td>
-                    <td>Initial search term</td>
+                    <td>Initial search term in the viewer</td>
                     <td>Any text string</td>
                     <td><code>?search=arithmetic</code></td>
                   </tr>
@@ -113,54 +122,53 @@
                     <td>asc, desc</td>
                     <td><code>?sortOrder=desc</code></td>
                   </tr>
-                  <tr>
-                    <td><code>index</code></td>
-                    <td>URL to an index JSON file</td>
-                    <td>Valid HTTP/HTTPS URL to index.json</td>
-                    <td><code>?index=https://api.example.com/index.json</code></td>
-                  </tr>
                 </tbody>
               </table>
 
               <h3>Combined Usage Examples</h3>
               <div class="mb-3">
-                <h4>Load results and filter to failed tests:</h4>
-                <code>?url=https://api.example.com/results.json&status=fail</code>
+                <h4>Open a results file and filter to failed tests:</h4>
+                <code>/results/open?url=https://api.example.com/results.json&amp;status=fail</code>
               </div>
 
               <div class="mb-3">
                 <h4>Load results and search for specific tests:</h4>
-                <code>?url=https://api.example.com/results.json&search=arithmetic</code>
+                <code>/results/open?url=https://api.example.com/results.json&amp;search=arithmetic</code>
               </div>
 
               <div class="mb-3">
                 <h4>Load results with both status and search filters:</h4>
-                <code>?url=https://api.example.com/results.json&status=error&search=division</code>
+                <code>/results/open?url=https://api.example.com/results.json&amp;status=error&amp;search=division</code>
               </div>
 
               <div class="mb-3">
                 <h4>Load results grouped by test group and sorted by name:</h4>
-                <code>?url=https://api.example.com/results.json&groupBy=group&sortBy=name&sortOrder=asc</code>
+                <code>/results/open?url=https://api.example.com/results.json&amp;groupBy=group&amp;sortBy=name&amp;sortOrder=asc</code>
               </div>
 
               <div class="mb-3">
                 <h4>Load failed tests grouped by status and sorted by expression:</h4>
-                <code>?url=https://api.example.com/results.json&status=fail&groupBy=status&sortBy=expression&sortOrder=desc</code>
+                <code>/results/open?url=https://api.example.com/results.json&amp;status=fail&amp;groupBy=status&amp;sortBy=expression&amp;sortOrder=desc</code>
               </div>
 
               <div class="mb-3">
-                <h4>Complete example with all parameters:</h4>
-                <code>?url=https://api.example.com/results.json&status=error&search=arithmetic&groupBy=group&sortBy=name&sortOrder=asc</code>
+                <h4>Complete example with load and viewer parameters:</h4>
+                <code>/results/open?url=https://api.example.com/results.json&amp;status=error&amp;search=arithmetic&amp;groupBy=group&amp;sortBy=name&amp;sortOrder=asc</code>
               </div>
 
               <div class="mb-3">
                 <h4>Load from index file:</h4>
-                <code>?index=https://api.example.com/index.json</code>
+                <code>/results/open?index=https://api.example.com/index.json</code>
               </div>
 
               <div class="mb-3">
-                <h4>Load from index with filters:</h4>
-                <code>?index=https://api.example.com/index.json&status=fail&search=arithmetic</code>
+                <h4>Load from index with filters (applied after you pick a file):</h4>
+                <code>/results/open?index=https://api.example.com/index.json&amp;status=fail&amp;search=arithmetic</code>
+              </div>
+
+              <div class="alert alert-info mb-0">
+                After a file is chosen, the app navigates to <code>/results</code> with <code>url</code> (and any filter
+                parameters) preserved so the same view can be bookmarked or shared.
               </div>
             </div>
           </div>
@@ -174,12 +182,14 @@
             </div>
             <div class="card-body">
               <h3>Loading from Index Files</h3>
-              <p>The application supports loading test results from index files, which contain a list of available result
-                files. This is particularly useful for CI/CD systems that generate multiple test result files.</p>
+              <p>On <code>/results/open</code>, you can load an index file that lists available result JSON files. This
+                is useful for CI/CD systems or hosts such as
+                <a href="https://cql-tests-results.quality.hl7.org/index.json" target="_blank" rel="noopener">cql-tests-results</a>
+                that publish multiple result files behind a single index.</p>
 
               <h4>Index File Format</h4>
-              <p>Index files must be valid JSON with a <code>files</code> array containing the available result file names:
-              </p>
+              <p>Index files must be valid JSON with a <code>files</code> array of result file names (or relative paths)
+                resolved against the directory that contains the index:</p>
               <pre><code>{{ '{' }}
   "files": [
     "results-2024-01-15.json",
@@ -189,16 +199,16 @@
 {{ '}' }}</code></pre>
 
               <h4>Using the Index Parameter</h4>
-              <p>When you provide an <code>index</code> parameter, the application will:</p>
+              <p>When you provide an <code>index</code> parameter on <code>/results/open</code>, the application will:</p>
               <ol>
                 <li>Load the index file from the specified URL</li>
                 <li>Display a list of available result files</li>
-                <li>Allow you to select and load any of the listed files</li>
+                <li>Let you select a file, which loads it and navigates to <code>/results</code></li>
               </ol>
 
               <h4>Index with Filter Parameters</h4>
               <p>You can combine the <code>index</code> parameter with filter parameters. When a user selects a file from
-                the index, the filters will be automatically applied to the loaded results.</p>
+                the index, those filters are carried into the viewer URL and applied to the loaded results.</p>
 
             </div>
           </div>
@@ -213,22 +223,28 @@
             <div class="card-body">
               <h3>Deep Linking for CI/CD</h3>
               <p>Integrate the viewer into your continuous integration pipeline by generating direct links to filtered
-                results. The application automatically updates the URL when users change controls, enabling easy sharing of
-                specific views.</p>
+                results. On the viewer page, the application updates the URL when users change controls, which makes it
+                easy to share a specific view.</p>
 
               <h3>Real-time URL Synchronization</h3>
-              <p>The application automatically updates the URL query parameters when users interact with controls:</p>
+              <p>On <code>/results</code>, the application updates query parameters when users interact with controls:</p>
               <ul>
-                <li><strong>Status Filter</strong> - Updates <code>status</code> parameter</li>
+                <li><strong>Status Filter</strong> - Updates <code>status</code> parameter (omitted when set to
+                  <code>all</code>)</li>
                 <li><strong>Search Term</strong> - Updates <code>search</code> parameter</li>
-                <li><strong>Grouping</strong> - Updates <code>groupBy</code> parameter</li>
-                <li><strong>Sorting</strong> - Updates <code>sortBy</code> and <code>sortOrder</code> parameters</li>
+                <li><strong>Grouping</strong> - Updates <code>groupBy</code> parameter (omitted when
+                  <code>none</code>)</li>
+                <li><strong>Sorting</strong> - Updates <code>sortBy</code> and <code>sortOrder</code> when they differ
+                  from the defaults (<code>name</code> / <code>asc</code>)</li>
+                <li><strong>Data Source</strong> - Preserves <code>url</code> when results were loaded from a remote
+                  file</li>
               </ul>
 
               <div class="alert alert-info">
                 <strong>Pro Tip:</strong> Bookmark URLs with specific filters for quick access to commonly used views, or
-                share them in team communications for collaborative analysis. The complete URL including the data source can
-                be shared and will load the exact same view.
+                share them in team communications for collaborative analysis. A complete URL that includes
+                <code>url</code> (or that was opened via <code>/results/open</code>) will reload the same data source and
+                view.
               </div>
             </div>
           </div>
@@ -241,8 +257,14 @@
               <h2 class="h4 mb-0">Schema Validation Details</h2>
             </div>
             <div class="card-body">
+              <h3>When Validation Runs</h3>
+              <p>If <strong>Validate schema</strong> is enabled in settings, opening a results file validates against the
+                CQL Test Results schema before navigating to the viewer. Validation prefers the runner API
+                (<code>POST /validate/results</code> endpoint and falls back to client-side AJV validation if the runner
+                is unavailable.</p>
+
               <h3>Validation Rules</h3>
-              <p>The application performs comprehensive validation against the CQL Test Results schema:</p>
+              <p>Required top-level fields:</p>
 
               <h4>Required Fields Validation</h4>
               <ul>
@@ -257,18 +279,22 @@
                     <li><code>cqlEngineVersion</code> - Must be a non-empty string</li>
                   </ul>
                 </li>
-                <li><code>testResultsSummary</code> - Must contain all count fields as numbers</li>
-                <li><code>testsRunDateTime</code> - Must be a valid ISO 8601 date string</li>
+                <li><code>testResultsSummary</code> - Must contain <code>passCount</code>, <code>skipCount</code>,
+                  <code>failCount</code>, and <code>errorCount</code> as integers</li>
+                <li><code>testsRunDateTime</code> - Must be a valid ISO 8601 date-time string</li>
                 <li><code>results</code> - Must be an array of test result objects</li>
+                <li><code>testsRunDescription</code> - Optional string describing the run</li>
               </ul>
 
               <h4>Test Result Object Validation</h4>
               <ul>
-                <li><code>testStatus</code> - Must be one of: pass, fail, skip, error</li>
                 <li><code>testsName</code>, <code>groupName</code>, <code>testName</code>, <code>expression</code> -
                   Required strings</li>
+                <li><code>testStatus</code> - When present, must be one of: pass, fail, skip, error</li>
+                <li><code>actual</code> / <code>expected</code> - Optional strings</li>
+                <li><code>error</code> - Optional object; when present, <code>message</code> is required</li>
                 <li><code>invalid</code> - Must be one of: true, false, semantic (if present)</li>
-                <li><code>responseStatus</code> - Must be a valid HTTP status code (if present)</li>
+                <li><code>responseStatus</code> - Optional integer HTTP status from the evaluation call</li>
                 <li><code>capabilities</code> - Optional array of capability objects (if present):
                   <ul>
                     <li><code>code</code> - Required string</li>
@@ -281,13 +307,14 @@
               </ul>
 
               <h3>Validation Error Handling</h3>
-              <p>When validation fails, the application:</p>
+              <p>When schema validation is enabled and validation fails, the application:</p>
               <ul>
                 <li>Displays detailed error messages for each validation failure</li>
-                <li>Still attempts to load the file for partial viewing</li>
-                <li>Maintains filter functionality even with invalid data</li>
-                <li>Provides guidance on fixing schema issues</li>
+                <li>Does <strong>not</strong> navigate to the viewer until validation succeeds</li>
+                <li>Leaves the loaded payload on the open page so you can inspect the reported issues</li>
               </ul>
+              <p class="mb-0">To open a non-conforming file anyway, disable schema validation in settings and reload the
+                file. Filtering and organization still work on whatever structure the viewer can read.</p>
             </div>
           </div>
         </div>
@@ -300,12 +327,12 @@
             </div>
             <div class="card-body">
               <h3>Search Capabilities</h3>
-              <p>The search functionality performs case-insensitive matching across multiple fields:</p>
+              <p>The search functionality performs case-insensitive substring matching across:</p>
               <ul>
-                <li><strong>Test Name</strong> - Exact and partial matches</li>
-                <li><strong>Group Name</strong> - Category-based filtering</li>
-                <li><strong>Test Suite Name</strong> - Suite-level organization</li>
-                <li><strong>CQL Expression</strong> - Code content searching</li>
+                <li><strong>Test Name</strong> (<code>testName</code>)</li>
+                <li><strong>Group Name</strong> (<code>groupName</code>)</li>
+                <li><strong>Test Suite Name</strong> (<code>testsName</code>)</li>
+                <li><strong>CQL Expression</strong> (<code>expression</code>)</li>
               </ul>
 
               <h3>Status Filter Combinations</h3>
@@ -317,29 +344,29 @@
               </ul>
 
               <h3>Grouping & Sorting Features</h3>
-              <p>The application provides powerful organization tools for large test result sets:</p>
+              <p>Organization tools for large result sets:</p>
 
               <h4>Grouping Options</h4>
               <ul>
                 <li><strong>None</strong> - Display all results in a single list</li>
-                <li><strong>Group Name</strong> - Group tests by their category/group</li>
+                <li><strong>Group Name</strong> - Group tests by <code>groupName</code></li>
                 <li><strong>Status</strong> - Group tests by pass/fail/skip/error status</li>
-                <li><strong>Tests Name</strong> - Group tests by their test suite name</li>
+                <li><strong>Tests Name</strong> - Group tests by suite name (<code>testsName</code>)</li>
               </ul>
 
               <h4>Sorting Options</h4>
               <ul>
                 <li><strong>Test Name</strong> - Alphabetical sorting by test name</li>
                 <li><strong>Group Name</strong> - Alphabetical sorting by group name</li>
-                <li><strong>Status</strong> - Sort by test status (pass, fail, skip, error)</li>
+                <li><strong>Status</strong> - Lexicographic sort by status string</li>
                 <li><strong>Expression</strong> - Alphabetical sorting by CQL expression</li>
                 <li><strong>Tests Name</strong> - Alphabetical sorting by test suite name</li>
               </ul>
 
               <h4>Sort Order</h4>
               <ul>
-                <li><strong>Ascending</strong> - A-Z, 0-9, or status priority order</li>
-                <li><strong>Descending</strong> - Z-A, 9-0, or reverse status priority order</li>
+                <li><strong>Ascending</strong> - A-Z / 0-9 for the selected field</li>
+                <li><strong>Descending</strong> - Z-A / 9-0 for the selected field</li>
               </ul>
 
               <h3>URL Encoding for Special Characters</h3>
@@ -349,7 +376,7 @@
                 <li>Special characters: Use percent encoding</li>
                 <li>Unicode characters: UTF-8 encoding</li>
               </ul>
-              <p><strong>Example:</strong> <code>?search=arithmetic%20operations&status=fail&groupBy=group</code></p>
+              <p><strong>Example:</strong> <code>?search=arithmetic%20operations&amp;status=fail&amp;groupBy=group</code></p>
             </div>
           </div>
         </div>
