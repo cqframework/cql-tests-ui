@@ -1,5 +1,5 @@
 # Build from the monorepo root:
-#   docker build -f server/Dockerfile -t p3000/cql-studio-server:latest .
+#   docker build -f server/Dockerfile -t hlseven/quality-cql-studio-server:latest .
 
 FROM node:26-alpine AS builder
 LABEL maintainer="Preston Lee"
@@ -31,7 +31,7 @@ WORKDIR /app
 ENV CQL_STUDIO_SERVER_NODE_ENV=production
 ENV CQL_STUDIO_SERVER_PORT=3003
 
-COPY --from=builder /app/package.json /app/package-lock.json ./
+COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/core/package.json ./core/
 COPY --from=builder /app/core/build ./core/build

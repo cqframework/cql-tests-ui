@@ -24,13 +24,11 @@ RUN npm run build --workspace=@cql-studio/core \
 FROM nginx:stable-alpine
 LABEL maintainer="Preston Lee"
 
-# We need to make a few changes to the default configuration file.
 COPY ui/nginx.conf /etc/nginx/conf.d/default.conf
 
 WORKDIR /usr/share/nginx/html
-RUN rm -rf *
+RUN rm -rf ./*
 
-# Copy build from "builder" stage
 COPY --from=builder /app/ui/dist/cql-studio/browser .
 
 COPY ui/entrypoint.sh .
