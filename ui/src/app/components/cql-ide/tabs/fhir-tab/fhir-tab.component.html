@@ -24,6 +24,7 @@
       <div class="mb-3">
       <!-- Library Form -->
       <div class="mb-3">
+        <p>We recommend using a generated Library ID and URL, except for server conflicts. Execution errors occur if Library ID and URL are not set correctly.</p>
         <div class="mb-3">
           <label for="library-id-input" class="form-label text-body small">Library ID</label>
           <div class="d-flex align-items-stretch gap-2">
@@ -48,6 +49,30 @@
           </div>
         </div>
         
+        <div class="mb-3">
+          <label for="library-url-input" class="form-label text-body small">URL</label>
+          <div class="d-flex align-items-stretch gap-2">
+            <input 
+              id="library-url-input"
+              type="text" 
+              class="form-control form-control-sm"
+              [ngModel]="activeLibrary()?.url ?? ''"
+              (ngModelChange)="onLibraryUrlChange($event)"
+              placeholder="Enter library canonical URL"
+              aria-label="Library URL"
+            >
+            <button 
+              class="btn btn-secondary btn-sm"
+              type="button"
+              (click)="onGenerateDefaultUrl()"
+              title="Generate default URL from FHIR server and library ID"
+              aria-label="Generate default library URL"
+            >
+              <i class="bi bi-arrow-repeat"></i>
+            </button>
+          </div>
+        </div>
+
         <div class="mb-3">
           <label for="library-name-input" class="form-label text-body small">Name</label>
           <input 
@@ -99,29 +124,7 @@
           >
         </div>
         
-        <div class="mb-3">
-          <label for="library-url-input" class="form-label text-body small">URL</label>
-          <div class="d-flex align-items-stretch gap-2">
-            <input 
-              id="library-url-input"
-              type="text" 
-              class="form-control form-control-sm"
-              [ngModel]="activeLibrary()?.url ?? ''"
-              (ngModelChange)="onLibraryUrlChange($event)"
-              placeholder="Enter library canonical URL"
-              aria-label="Library URL"
-            >
-            <button 
-              class="btn btn-secondary btn-sm"
-              type="button"
-              (click)="onGenerateDefaultUrl()"
-              title="Generate default URL from FHIR server and library ID"
-              aria-label="Generate default library URL"
-            >
-              <i class="bi bi-arrow-repeat"></i>
-            </button>
-          </div>
-        </div>
+        
       </div>
 
       <!-- Library Actions -->

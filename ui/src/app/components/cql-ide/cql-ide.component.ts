@@ -291,14 +291,8 @@ export class CqlIdeComponent implements OnInit, OnDestroy {
     this.ideStateService.addTabToPanel('bottom', valuesetPeekTab);
 
     this.ideStateService.setActiveTab('left', 'navigation-tab');
+    this.ideStateService.setActiveTab('right', 'fhir-tab');
     this.ideStateService.setActiveTab('bottom', 'output-tab');
-    
-    // Set the active tab for the right panel: AI tab if available, otherwise FHIR tab
-    if (aiTabAdded) {
-      this.ideStateService.setActiveTab('right', 'ai-tab');
-    } else {
-      this.ideStateService.setActiveTab('right', 'fhir-tab');
-    }
   }
 
   private cleanupTabs(): void {
