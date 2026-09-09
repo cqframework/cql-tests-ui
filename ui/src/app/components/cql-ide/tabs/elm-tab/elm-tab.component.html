@@ -15,7 +15,7 @@
           {{ isTranslating() ? 'Translating...' : 'Translate' }}
         </button>
         <button 
-          class="btn btn-outline-secondary btn-sm" 
+          class="btn btn-secondary btn-sm" 
           (click)="onClearElmTranslation()" 
           [disabled]="!elmTranslationResults()"
           title="Clear Translation"
@@ -70,7 +70,7 @@
             <button
               id="elm-copy-xml-btn"
               type="button"
-              class="btn btn-outline-secondary btn-sm"
+              class="btn btn-secondary btn-sm"
               (click)="onCopyElmXml()"
               title="Copy ELM XML"
               aria-label="Copy ELM XML"
@@ -80,7 +80,7 @@
             <button 
               id="elm-download-xml-btn"
               type="button"
-              class="btn btn-outline-secondary btn-sm" 
+              class="btn btn-secondary btn-sm" 
               (click)="onDownloadElmXml()" 
               title="Download ELM XML"
             >

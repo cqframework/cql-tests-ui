@@ -37,7 +37,7 @@
               aria-label="Library ID"
             >
             <button 
-              class="btn btn-outline-secondary btn-sm"
+              class="btn btn-secondary btn-sm"
               type="button"
               (click)="onGenerateDefaultId()"
               title="Generate default ID from library name"
@@ -112,7 +112,7 @@
               aria-label="Library URL"
             >
             <button 
-              class="btn btn-outline-secondary btn-sm"
+              class="btn btn-secondary btn-sm"
               type="button"
               (click)="onGenerateDefaultUrl()"
               title="Generate default URL from FHIR server and library ID"
@@ -145,7 +145,7 @@
           <span class="fw-semibold small text-body">Resource</span>
         </div>
         <button 
-          class="btn btn-outline-secondary btn-sm" 
+          class="btn btn-secondary btn-sm" 
           (click)="onCopyResourceToClipboard()" 
           title="Copy FHIR resource JSON to clipboard"
           [disabled]="!hasSelectedLibrary() && !hasSelectedContext()"

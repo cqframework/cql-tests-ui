@@ -17,7 +17,7 @@
           <option value="name">Name</option>
           <option value="type">Type</option>
         </select>
-        <button id="clipboardSortOrder" class="btn btn-outline-secondary btn-sm" (click)="toggleSortOrder()"
+        <button id="clipboardSortOrder" class="btn btn-secondary btn-sm" (click)="toggleSortOrder()"
           [title]="'Sort ' + (sortOrder() === 'asc' ? 'Descending' : 'Ascending')">
           <i class="bi bi-{{ sortOrder() === 'asc' ? 'arrow-up' : 'arrow-down' }}"></i>
         </button>

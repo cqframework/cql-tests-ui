@@ -1,16 +1,13 @@
 <div class="opencode-tab d-flex flex-column h-100">
-  <header class="opencode-toolbar border-bottom p-2 d-flex align-items-center justify-content-between gap-2">
+  <header class="opencode-toolbar border-bottom p-2 d-flex flex-column gap-2">
     <div class="d-flex align-items-center gap-2 min-w-0">
-      <i class="bi bi-terminal"></i>
-      <strong>OpenCode</strong>
       @if (session()) {
+        <i class="bi bi-terminal"></i>
+        <strong>Model:</strong>
         <span class="badge text-bg-secondary text-truncate" [title]="session()!.model">{{ session()!.model }}</span>
         @if (sessionArchived()) {
           <span id="opencode-session-archived" class="badge text-bg-warning">Archived</span>
         }
-        <span class="badge text-bg-light text-truncate" [title]="'Bound environment: ' + sessionEnvironmentLabel()">
-          <i class="bi bi-hdd-network me-1"></i>{{ sessionEnvironmentLabel() }}
-        </span>
         @if (activeLibrary()?.workspaceOrigin; as origin) {
           <span id="opencode-workspace-origin" class="badge text-bg-light text-truncate"
             [title]="'Opened from workspace: ' + origin.workspaceName">
@@ -22,351 +19,434 @@
       }
     </div>
     @if (session()) {
-      <div class="d-flex align-items-center gap-2">
-        <label class="reasoning-toggle small" title="Follow edits across library tabs; automatically create and save new libraries">
-          <input id="opencode-live-edits" type="checkbox" [ngModel]="liveEditsEnabled()" (ngModelChange)="toggleLiveEdits($event)" [disabled]="environmentStale() || sessionArchived()">
+      <div class="d-flex align-items-center justify-content-end gap-2">
+        <label class="reasoning-toggle small"
+          title="Follow edits across library tabs; automatically create and save new libraries">
+          <input id="opencode-live-edits" type="checkbox" [ngModel]="liveEditsEnabled()"
+            (ngModelChange)="toggleLiveEdits($event)" [disabled]="environmentStale() || sessionArchived()">
           Live edits
         </label>
         <label class="reasoning-toggle small" title="Enable the model's thinking variant for subsequent prompts">
-          <input type="checkbox" [ngModel]="reasoningEnabled()" (ngModelChange)="reasoningEnabled.set($event)" [disabled]="sessionArchived()">
+          <input type="checkbox" [ngModel]="reasoningEnabled()" (ngModelChange)="reasoningEnabled.set($event)"
+            [disabled]="sessionArchived()">
           Reasoning
         </label>
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="endSession()" title="Archive this conversation and end its live runner workspace">
+        <button type="button" class="btn btn-sm btn-secondary" (click)="endSession()"
+          title="Archive this conversation and end its live runner workspace">
           <i class="bi bi-x-lg me-1"></i>End
         </button>
       </div>
     }
-      @if (workingFile(); as file) {
-        <div id="opencode-working-file" class="small text-body-secondary" role="status"><i class="bi bi-pencil me-1"></i>Working on {{ file }}</div>
-      }
   </header>
 
   @if (!isAvailable()) {
-    <div class="empty-state">
-      <i class="bi bi-terminal fs-1 text-secondary"></i>
-      <h5>OpenCode is not configured</h5>
-      <p class="text-body-secondary mb-0">Enable the AI assistant and configure CQL Studio Server, Ollama, and a model in Settings.</p>
-    </div>
+  <div class="empty-state">
+    <i class="bi bi-terminal fs-1 text-secondary"></i>
+    <h5>OpenCode is not configured</h5>
+    <p class="text-body-secondary mb-0">Enable the AI assistant and configure CQL Studio Server, Ollama, and a model in
+      Settings.</p>
+  </div>
   } @else if (!session()) {
-    <div class="empty-state">
-      <i class="bi bi-folder2-open fs-1 text-secondary"></i>
-      <h5>Start an isolated workspace</h5>
-      @if (activeLibrary(); as library) {
-        <p class="text-body-secondary">OpenCode will receive a draft snapshot of <strong>{{ library.name }}</strong> as the main file, together with all other open CQL libraries.</p>
-        @if (library.workspaceOrigin; as origin) {
-          <small id="opencode-workspace-origin" class="text-body-secondary">
-            Opened from workspace <strong>{{ origin.workspaceName }}</strong>.
-          </small>
-        }
-      } @else {
-        <p class="text-body-secondary">Open or create a CQL library first.</p>
-      }
-      <div class="d-flex flex-wrap justify-content-center gap-2">
-        <button type="button" class="btn btn-primary" [disabled]="!canStart()" (click)="startSession()">
-          @if (status() === 'starting') { <span class="spinner-border spinner-border-sm me-2"></span> }
-          @else { <i class="bi bi-play-fill me-1"></i> }
-          Start OpenCode
-        </button>
-        <button type="button" class="btn btn-outline-primary" [disabled]="!activeLibrary()" (click)="openResumePicker()">
-          <i class="bi bi-clock-history me-1"></i>Resume saved session
-        </button>
-      </div>
-      @if (showResumeSessions()) {
-        <section class="info-card border rounded p-3 text-start w-100">
-          <div class="d-flex justify-content-between gap-2"><strong>Saved sessions for this Library</strong><button class="btn-close" (click)="showResumeSessions.set(false)"></button></div>
-          @for (item of resumeSessions(); track item.id) {
-            <button type="button" class="session-row" (click)="resumeSession(item)">
-              <span>{{ item.title }}</span><small>Archived · {{ item.updatedAt }}</small>
-            </button>
-          } @empty { <p class="small text-body-secondary mb-0 mt-2">No archived sessions exist for the active Library.</p> }
-        </section>
-      }
-      <small class="text-body-secondary">All open CQL libraries join the workspace. Review changes per file; new libraries and renames are saved through CQL Studio.</small>
+  <div class="empty-state">
+    <i class="bi bi-folder2-open fs-1 text-secondary"></i>
+    <h5>Start an isolated workspace</h5>
+    @if (activeLibrary(); as library) {
+    <p class="text-body-secondary">OpenCode will receive a draft snapshot of <strong>{{ library.name }}</strong> as the
+      main file, together with all other open CQL libraries.</p>
+    @if (library.workspaceOrigin; as origin) {
+    <small id="opencode-workspace-origin" class="text-body-secondary">
+      Opened from workspace <strong>{{ origin.workspaceName }}</strong>.
+    </small>
+    }
+    } @else {
+    <p class="text-body-secondary">Open or create a CQL library first.</p>
+    }
+    <div class="d-flex flex-wrap justify-content-center gap-2">
+      <button type="button" class="btn btn-primary" [disabled]="!canStart()" (click)="startSession()">
+        @if (status() === 'starting') { <span class="spinner-border spinner-border-sm me-2"></span> }
+        @else { <i class="bi bi-play-fill me-1"></i> }
+        Start OpenCode
+      </button>
+      <button type="button" class="btn btn-outline-primary" [disabled]="!activeLibrary()" (click)="openResumePicker()">
+        <i class="bi bi-clock-history me-1"></i>Resume saved session
+      </button>
     </div>
+    @if (showResumeSessions()) {
+    <section class="info-card border rounded p-3 text-start w-100">
+      <div class="d-flex justify-content-between gap-2"><strong>Saved sessions for this Library</strong><button
+          class="btn-close" (click)="showResumeSessions.set(false)"></button></div>
+      @for (item of resumeSessions(); track item.id) {
+      <button type="button" class="session-row" (click)="resumeSession(item)">
+        <span>{{ item.title }}</span><small>Archived · {{ item.updatedAt }}</small>
+      </button>
+      } @empty { <p class="small text-body-secondary mb-0 mt-2">No archived sessions exist for the active Library.</p> }
+    </section>
+    }
+    <small class="text-body-secondary">All open CQL libraries join the workspace. Review changes per file; new libraries
+      and renames are saved through CQL Studio.</small>
+  </div>
   } @else {
-    @if (sessionArchived()) {
-      <div id="opencode-session-archive-notice" class="alert alert-info rounded-0 mb-0 py-2 px-3 d-flex justify-content-between align-items-center gap-2" role="status">
-        <span>This saved session is read-only. Resume it to continue with the active Library's current files and AI provider.</span>
-        <button type="button" class="btn btn-sm btn-primary flex-shrink-0" (click)="openResumePicker()">
-          <i class="bi bi-play-fill me-1"></i>Resume
-        </button>
-      </div>
+  @if (sessionArchived()) {
+  <div id="opencode-session-archive-notice"
+    class="alert alert-info rounded-0 mb-0 py-2 px-3 d-flex justify-content-between align-items-center gap-2"
+    role="status">
+    <span>This saved session is read-only. Resume it to continue with the active Library's current files and AI
+      provider.</span>
+    <button type="button" class="btn btn-sm btn-primary flex-shrink-0" (click)="openResumePicker()">
+      <i class="bi bi-play-fill me-1"></i>Resume
+    </button>
+  </div>
+  }
+  @if (environmentStale()) {
+  <div id="opencode-environment-stale" class="alert alert-warning rounded-0 mb-0 py-2 px-3" role="alert">
+    <strong>Environment changed.</strong>
+    This session is bound to {{ sessionEnvironmentLabel() }}, but the IDE is using {{ currentEnvironmentLabel() }}.
+    Review or end this session, then start a new one before prompting or applying changes.
+  </div>
+  }
+  <div #messageScroller class="messages flex-grow-1 overflow-auto p-3">
+    @if (showResumeSessions()) {
+    <section class="info-card border rounded p-3 mb-3">
+      <div class="d-flex justify-content-between gap-2"><strong>Resume a saved session for this Library</strong><button
+          class="btn-close" (click)="showResumeSessions.set(false)"></button></div>
+      @for (item of resumeSessions(); track item.id) {
+      <button type="button" class="session-row" (click)="resumeSession(item)">
+        <span>{{ item.title }}</span><small>Archived · {{ item.updatedAt }}</small>
+      </button>
+      } @empty { <p class="small text-body-secondary mb-0 mt-2">No archived sessions exist for the active Library.</p> }
+    </section>
     }
-    @if (environmentStale()) {
-      <div id="opencode-environment-stale" class="alert alert-warning rounded-0 mb-0 py-2 px-3" role="alert">
-        <strong>Environment changed.</strong>
-        This session is bound to {{ sessionEnvironmentLabel() }}, but the IDE is using {{ currentEnvironmentLabel() }}.
-        Review or end this session, then start a new one before prompting or applying changes.
-      </div>
+
+    @if (messages().length === 0 && activities().length === 0 && status() !== 'busy') {
+    <div class="text-center text-body-secondary py-4">Ask OpenCode to explain, plan, validate, review, or edit the
+      active CQL library.</div>
     }
-    <div #messageScroller class="messages flex-grow-1 overflow-auto p-3">
-      @if (showResumeSessions()) {
-        <section class="info-card border rounded p-3 mb-3">
-          <div class="d-flex justify-content-between gap-2"><strong>Resume a saved session for this Library</strong><button class="btn-close" (click)="showResumeSessions.set(false)"></button></div>
-          @for (item of resumeSessions(); track item.id) {
-            <button type="button" class="session-row" (click)="resumeSession(item)">
-              <span>{{ item.title }}</span><small>Archived · {{ item.updatedAt }}</small>
-            </button>
-          } @empty { <p class="small text-body-secondary mb-0 mt-2">No archived sessions exist for the active Library.</p> }
-        </section>
-      }
 
-      @if (messages().length === 0 && activities().length === 0 && status() !== 'busy') {
-        <div class="text-center text-body-secondary py-4">Ask OpenCode to explain, plan, validate, review, or edit the active CQL library.</div>
+    @for (item of timeline(); track item.kind + '-' + item.id) {
+    @if (item.kind === 'message') {
+    <article class="message" [class.user]="item.message.role === 'user'"
+      [class.assistant]="item.message.role === 'assistant'">
+      <div class="message-role">{{ item.message.role === 'user' ? 'You' : 'OpenCode' }}</div>
+      <markdown [data]="item.message.text"></markdown>
+    </article>
+    } @else if (item.activity.kind !== 'reasoning' || reasoningShown()) {
+    <section class="activity-card border rounded mb-2" [class.activity-error]="item.activity.status === 'error'">
+      <div class="activity-summary">
+        @if (item.activity.status === 'running' || item.activity.status === 'pending') { <span
+          class="spinner-border spinner-border-sm"></span> }
+        @else if (item.activity.status === 'error') { <i class="bi bi-exclamation-triangle text-danger"></i> }
+        @else { <i class="bi bi-check2 text-success"></i> }
+        <strong>{{ item.activity.title }}</strong>
+        @if (activityDuration(item.activity)) { <small>{{ activityDuration(item.activity) }}</small> }
+        @if (item.activity.reasoningTokens != null) { <small>{{ item.activity.reasoningTokens }} reasoning
+          tokens</small> }
+      </div>
+      @if (item.activity.detail && (detailsShown() || item.activity.kind === 'validation' || item.activity.kind ===
+      'repair' || item.activity.kind === 'reasoning')) {
+      <pre class="activity-detail">{{ item.activity.detail }}</pre>
       }
+      @if (item.activity.output && detailsShown()) {
+      <details>
+        <summary>Tool output</summary>
+        <pre class="activity-detail">{{ item.activity.output }}</pre>
+      </details>
+      }
+    </section>
+    }
+    }
 
-      @for (item of timeline(); track item.kind + '-' + item.id) {
-        @if (item.kind === 'message') {
-          <article class="message" [class.user]="item.message.role === 'user'" [class.assistant]="item.message.role === 'assistant'">
-            <div class="message-role">{{ item.message.role === 'user' ? 'You' : 'OpenCode' }}</div>
-            <markdown [data]="item.message.text"></markdown>
-          </article>
-        } @else if (item.activity.kind !== 'reasoning' || reasoningShown()) {
-          <section class="activity-card border rounded mb-2" [class.activity-error]="item.activity.status === 'error'">
-            <div class="activity-summary">
-              @if (item.activity.status === 'running' || item.activity.status === 'pending') { <span class="spinner-border spinner-border-sm"></span> }
-              @else if (item.activity.status === 'error') { <i class="bi bi-exclamation-triangle text-danger"></i> }
-              @else { <i class="bi bi-check2 text-success"></i> }
-              <strong>{{ item.activity.title }}</strong>
-              @if (activityDuration(item.activity)) { <small>{{ activityDuration(item.activity) }}</small> }
-              @if (item.activity.reasoningTokens != null) { <small>{{ item.activity.reasoningTokens }} reasoning tokens</small> }
-            </div>
-            @if (item.activity.detail && (detailsShown() || item.activity.kind === 'validation' || item.activity.kind === 'repair' || item.activity.kind === 'reasoning')) {
-              <pre class="activity-detail">{{ item.activity.detail }}</pre>
-            }
-            @if (item.activity.output && detailsShown()) {
-              <details><summary>Tool output</summary><pre class="activity-detail">{{ item.activity.output }}</pre></details>
-            }
-          </section>
+    @if (showHelp()) {
+    <section #helpCard class="info-card help-card border rounded p-3 mb-3">
+      <div class="d-flex justify-content-between gap-2"><strong>Commands and references</strong><button type="button"
+          class="btn-close" aria-label="Close command help" (click)="showHelp.set(false)"></button></div>
+      <p class="small text-body-secondary mt-2 mb-2">Type <code>/</code> for commands or <code>&#64;</code> to attach a
+        CQL library or dependency to the prompt.</p>
+      <div class="command-grid">
+        @for (command of commands(); track command.name) {
+        <button type="button" class="command-help"
+          (click)="chooseCommand(command)"><code>/{{ command.name }}</code><span>{{ command.description
+            }}</span></button>
         }
-      }
+      </div>
+    </section>
+    }
 
-      @if (showHelp()) {
-        <section #helpCard class="info-card help-card border rounded p-3 mb-3">
-          <div class="d-flex justify-content-between gap-2"><strong>Commands and references</strong><button type="button" class="btn-close" aria-label="Close command help" (click)="showHelp.set(false)"></button></div>
-          <p class="small text-body-secondary mt-2 mb-2">Type <code>/</code> for commands or <code>&#64;</code> to attach a CQL library or dependency to the prompt.</p>
-          <div class="command-grid">
-            @for (command of commands(); track command.name) {
-              <button type="button" class="command-help" (click)="chooseCommand(command)"><code>/{{ command.name }}</code><span>{{ command.description }}</span></button>
-            }
-          </div>
-        </section>
-      }
+    @if (status() === 'busy') {
+    <div class="d-flex align-items-center gap-2 text-body-secondary py-2"><span
+        class="spinner-border spinner-border-sm"></span>OpenCode is working…</div>
+    }
 
-      @if (status() === 'busy') {
-        <div class="d-flex align-items-center gap-2 text-body-secondary py-2"><span class="spinner-border spinner-border-sm"></span>OpenCode is working…</div>
-      }
-
-      @for (request of questions(); track request.id) {
-        <section class="question-card border border-info rounded p-3 my-3">
-          <div class="d-flex align-items-start gap-2">
-            <i class="bi bi-question-circle text-info"></i>
-            <div class="flex-grow-1 min-w-0">
-              @for (question of request.questions; track $index; let questionIndex = $index) {
-                <div class="mb-3">
-                  <strong>{{ question.header }}</strong>
-                  <p class="small mb-2">{{ question.question }}</p>
-                  <div class="d-flex flex-column gap-2">
-                    @for (option of question.options; track option.label) {
-                      <button type="button" class="question-option text-start"
-                        [class.selected]="questionOptionSelected(request.id, questionIndex, option.label)"
-                        (click)="toggleQuestionAnswer(request, questionIndex, option.label, question.multiple)">
-                        <strong>{{ option.label }}</strong><small>{{ option.description }}</small>
-                      </button>
-                    }
-                  </div>
-                </div>
+    @for (request of questions(); track request.id) {
+    <section class="question-card border border-info rounded p-3 my-3">
+      <div class="d-flex align-items-start gap-2">
+        <i class="bi bi-question-circle text-info"></i>
+        <div class="flex-grow-1 min-w-0">
+          @for (question of request.questions; track $index; let questionIndex = $index) {
+          <div class="mb-3">
+            <strong>{{ question.header }}</strong>
+            <p class="small mb-2">{{ question.question }}</p>
+            <div class="d-flex flex-column gap-2">
+              @for (option of question.options; track option.label) {
+              <button type="button" class="question-option text-start"
+                [class.selected]="questionOptionSelected(request.id, questionIndex, option.label)"
+                (click)="toggleQuestionAnswer(request, questionIndex, option.label, question.multiple)">
+                <strong>{{ option.label }}</strong><small>{{ option.description }}</small>
+              </button>
               }
-              <div class="d-flex gap-2">
-                <button type="button" class="btn btn-sm btn-primary" [disabled]="!canAnswerQuestion(request)" (click)="submitQuestion(request)">Answer</button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="rejectQuestion(request)">Skip</button>
-              </div>
             </div>
           </div>
-        </section>
-      }
-
-      @if (diffs().length && status() !== 'busy') {
-        <div id="opencode-review-files" class="alert alert-info">Review each changed file below. Accept and save or discard each file independently.</div>
-      }
-
-      @for (permission of permissions(); track permission.id) {
-        <section class="permission-card border border-warning rounded p-3 my-3">
-          <div class="d-flex align-items-start gap-2">
-            <i class="bi bi-shield-exclamation text-warning"></i>
-            <div class="flex-grow-1 min-w-0">
-              <strong>{{ permission.title || permission.type }}</strong>
-              @if (permission.pattern) { <div class="small font-monospace text-break mt-1">{{ permission.pattern }}</div> }
-              @if (fileOperation(permission); as operation) {
-                <details class="mt-2"><summary>Review CQL to be saved</summary><pre>{{ operation.content }}</pre></details>
-              }
-              <div class="d-flex flex-wrap gap-2 mt-3">
-                <button [id]="'opencode-accept-' + permission.id" type="button" class="btn btn-sm btn-primary" [disabled]="isPermissionPending(permission.id) || environmentStale()" (click)="respondToPermission(permission, 'once')">{{ isPermissionPending(permission.id) ? 'Saving…' : 'Accept' }}</button>
-                @if (!permission.type?.startsWith('cql.')) {
-                  <button type="button" class="btn btn-sm btn-outline-primary" (click)="respondToPermission(permission, 'always')">Always allow</button>
-                }
-                <button [id]="'opencode-reject-' + permission.id" type="button" class="btn btn-sm btn-outline-danger" [disabled]="isPermissionPending(permission.id) || environmentStale()" (click)="respondToPermission(permission, 'reject')">Reject</button>
-              </div>
-            </div>
-          </div>
-        </section>
-      }
-
-      @if (validation(); as result) {
-        <section class="validation-card border rounded my-3" [class.invalid]="!result.valid">
-          <div class="p-2 d-flex align-items-center gap-2">
-            <i class="bi" [class.bi-check-circle]="result.valid" [class.text-success]="result.valid" [class.bi-x-circle]="!result.valid" [class.text-danger]="!result.valid"></i>
-            <strong>{{ result.valid ? 'CQL is valid' : 'CQL validation errors' }}</strong>
-            @if (!result.valid) { <small class="ms-auto">Repair attempts {{ repairAttempts() }}/2</small> }
-          </div>
-          @if (result.diagnostics.length) {
-            <details [open]="!result.valid"><summary class="px-2 py-1">{{ result.diagnostics.length }} diagnostics</summary>
-              <ul class="diagnostic-list">
-                @for (diagnostic of result.diagnostics; track $index) {
-                  <li [class.text-danger]="diagnostic.severity === 'error'" [class.text-warning]="diagnostic.severity === 'warning'">
-                    <strong>{{ diagnostic.severity }}</strong>
-                    @if (diagnostic.file) { <code>{{ diagnostic.file }}:{{ diagnostic.line || '?' }}:{{ diagnostic.column ?? '?' }}</code> }
-                    {{ diagnostic.message }}
-                  </li>
-                }
-              </ul>
-            </details>
           }
-        </section>
-      }
-
-      @for (diff of diffs(); track diff.file) {
-        <section class="diff-card border rounded my-3 overflow-hidden">
-          <div class="diff-header p-2 d-flex align-items-center justify-content-between gap-2">
-            <div class="min-w-0"><strong class="text-truncate d-block">{{ diff.file }}</strong><small class="text-success">+{{ diff.additions }}</small><small class="text-danger ms-2">−{{ diff.deletions }}</small></div>
-            <div class="d-flex gap-1 flex-shrink-0">
-              @if (wasLiveApplied(diff.file)) {
-                <button type="button" class="btn btn-sm btn-outline-danger" [disabled]="environmentStale() || status() === 'busy' || isDiffSaving(diff.file)" (click)="revertChange(diff)">Revert</button>
-                <button type="button" class="btn btn-sm btn-outline-primary" [disabled]="environmentStale() || status() === 'busy' || isDiffSaving(diff.file)" (click)="applyLocally(diff)">Keep locally</button>
-              } @else {
-                <button type="button" class="btn btn-sm btn-outline-secondary" [id]="'opencode-discard-' + diff.libraryId" [disabled]="status() === 'busy' || environmentStale() || isDiffSaving(diff.file)" (click)="discardChange(diff)">Discard</button>
-                <button type="button" class="btn btn-sm btn-outline-primary" [disabled]="environmentStale() || status() === 'busy' || isDiffSaving(diff.file)" (click)="applyLocally(diff)">Apply locally</button>
-              }
-              @if (isDiffSaved(diff.file)) {
-                <button type="button" class="btn btn-sm btn-secondary" disabled title="This OpenCode change was saved to FHIR">
-                  <i class="bi bi-check-circle-fill me-1"></i>Saved
-                </button>
-              } @else {
-                <button type="button" class="btn btn-sm btn-success" [id]="'opencode-save-' + diff.libraryId" [disabled]="status() === 'busy' || environmentStale() || isDiffSaving(diff.file)" (click)="applyAndSave(diff)"
-                  [title]="vsacReferenceCount(diff) > 0 ? 'Apply the CQL change, import its VSAC ValueSets to the configured terminology server, and save the Library' : 'Apply the CQL change and save the Library'">
-                  @if (isDiffSaving(diff.file)) { <span class="spinner-border spinner-border-sm me-1"></span>Saving… }
-                  @else {
-                    <i class="bi bi-check2 me-1"></i>
-                    @if (vsacReferenceCount(diff) > 0) { Apply, import terminology &amp; save }
-                    @else { Apply &amp; save }
-                  }
-                </button>
-              }
-            </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-primary" [disabled]="!canAnswerQuestion(request)"
+              (click)="submitQuestion(request)">Answer</button>
+            <button type="button" class="btn btn-sm btn-secondary"
+              (click)="rejectQuestion(request)">Skip</button>
           </div>
-          <details><summary class="px-2 py-1">Review full change</summary><div class="diff-columns">
-            <div><div class="diff-label">Before</div><pre>{{ diff.before }}</pre></div>
-            <div><div class="diff-label">After</div><pre>{{ diff.after }}</pre></div>
-          </div></details>
-        </section>
-      }
-    </div>
-
-    @if (error()) {
-      <div class="alert alert-danger rounded-0 mb-0 py-2 px-3 d-flex justify-content-between align-items-center gap-2">
-        <small>{{ error() }}</small>
-        <div class="d-flex gap-2">@if (errorRetryable()) { <button class="btn btn-sm btn-outline-danger" (click)="retryConnection()">Retry</button> }<button type="button" class="btn-close btn-sm" (click)="error.set(null)"></button></div>
-      </div>
-    }
-    @if (liveConflict()) {
-      <div class="alert alert-warning rounded-0 mb-0 py-2 px-3 d-flex justify-content-between align-items-center gap-2">
-        <small>{{ liveConflict() }}</small>
-        <button type="button" class="btn-close btn-sm" (click)="liveConflict.set(null)"></button>
-      </div>
-    }
-
-    <footer class="composer border-top p-2">
-      <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-        <div class="btn-group btn-group-sm" role="group" aria-label="OpenCode agent">
-          <button type="button" class="btn" [class.btn-primary]="agent() === 'plan'" [class.btn-outline-secondary]="agent() !== 'plan'" (click)="agent.set('plan')">Plan</button>
-          <button type="button" class="btn" [class.btn-primary]="agent() === 'build'" [class.btn-outline-secondary]="agent() !== 'build'" (click)="agent.set('build')">Build</button>
         </div>
-        <div class="d-flex gap-1">
-          <input #attachmentInput type="file" class="d-none" multiple
-            (change)="onAttachmentsSelected($event)">
-          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="attachmentInput.click()" [disabled]="uploadingAttachments() || environmentStale() || sessionArchived()" title="Attach context files">
-            @if (uploadingAttachments()) { <span class="spinner-border spinner-border-sm"></span> }
-            @else { <i class="bi bi-paperclip"></i> }
+      </div>
+    </section>
+    }
+
+    @if (diffs().length && status() !== 'busy') {
+    <div id="opencode-review-files" class="alert alert-info">Review each changed file below. Accept and save or discard
+      each file independently.</div>
+    }
+
+    @for (permission of permissions(); track permission.id) {
+    <section class="permission-card border border-warning rounded p-3 my-3">
+      <div class="d-flex align-items-start gap-2">
+        <i class="bi bi-shield-exclamation text-warning"></i>
+        <div class="flex-grow-1 min-w-0">
+          <strong>{{ permission.title || permission.type }}</strong>
+          @if (permission.pattern) { <div class="small font-monospace text-break mt-1">{{ permission.pattern }}</div> }
+          @if (fileOperation(permission); as operation) {
+          <details class="mt-2">
+            <summary>Review CQL to be saved</summary>
+            <pre>{{ operation.content }}</pre>
+          </details>
+          }
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <button [id]="'opencode-accept-' + permission.id" type="button" class="btn btn-sm btn-primary"
+              [disabled]="isPermissionPending(permission.id) || environmentStale()"
+              (click)="respondToPermission(permission, 'once')">{{ isPermissionPending(permission.id) ? 'Saving…' :
+              'Accept' }}</button>
+            @if (!permission.type?.startsWith('cql.')) {
+            <button type="button" class="btn btn-sm btn-outline-primary"
+              (click)="respondToPermission(permission, 'always')">Always allow</button>
+            }
+            <button [id]="'opencode-reject-' + permission.id" type="button" class="btn btn-sm btn-outline-danger"
+              [disabled]="isPermissionPending(permission.id) || environmentStale()"
+              (click)="respondToPermission(permission, 'reject')">Reject</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    }
+
+    @if (validation(); as result) {
+    <section class="validation-card border rounded my-3" [class.invalid]="!result.valid">
+      <div class="p-2 d-flex align-items-center gap-2">
+        <i class="bi" [class.bi-check-circle]="result.valid" [class.text-success]="result.valid"
+          [class.bi-x-circle]="!result.valid" [class.text-danger]="!result.valid"></i>
+        <strong>{{ result.valid ? 'CQL is valid' : 'CQL validation errors' }}</strong>
+        @if (!result.valid) { <small class="ms-auto">Repair attempts {{ repairAttempts() }}/2</small> }
+      </div>
+      @if (result.diagnostics.length) {
+      <details [open]="!result.valid">
+        <summary class="px-2 py-1">{{ result.diagnostics.length }} diagnostics</summary>
+        <ul class="diagnostic-list">
+          @for (diagnostic of result.diagnostics; track $index) {
+          <li [class.text-danger]="diagnostic.severity === 'error'"
+            [class.text-warning]="diagnostic.severity === 'warning'">
+            <strong>{{ diagnostic.severity }}</strong>
+            @if (diagnostic.file) {
+            <code>{{ diagnostic.file }}:{{ diagnostic.line || '?' }}:{{ diagnostic.column ?? '?' }}</code> }
+            {{ diagnostic.message }}
+          </li>
+          }
+        </ul>
+      </details>
+      }
+    </section>
+    }
+
+    @for (diff of diffs(); track diff.file) {
+    <section class="diff-card border rounded my-3 overflow-hidden">
+      <div class="diff-header p-2 d-flex align-items-center justify-content-between gap-2">
+        <div class="min-w-0"><strong class="text-truncate d-block">{{ diff.file }}</strong><small
+            class="text-success">+{{ diff.additions }}</small><small class="text-danger ms-2">−{{ diff.deletions
+            }}</small></div>
+        <div class="d-flex gap-1 flex-shrink-0">
+          @if (wasLiveApplied(diff.file)) {
+          <button type="button" class="btn btn-sm btn-outline-danger"
+            [disabled]="environmentStale() || status() === 'busy' || isDiffSaving(diff.file)"
+            (click)="revertChange(diff)">Revert</button>
+          <button type="button" class="btn btn-sm btn-outline-primary"
+            [disabled]="environmentStale() || status() === 'busy' || isDiffSaving(diff.file)"
+            (click)="applyLocally(diff)">Keep locally</button>
+          } @else {
+          <button type="button" class="btn btn-sm btn-secondary" [id]="'opencode-discard-' + diff.libraryId"
+            [disabled]="status() === 'busy' || environmentStale() || isDiffSaving(diff.file)"
+            (click)="discardChange(diff)">Discard</button>
+          <button type="button" class="btn btn-sm btn-outline-primary"
+            [disabled]="environmentStale() || status() === 'busy' || isDiffSaving(diff.file)"
+            (click)="applyLocally(diff)">Apply locally</button>
+          }
+          @if (isDiffSaved(diff.file)) {
+          <button type="button" class="btn btn-sm btn-secondary" disabled
+            title="This OpenCode change was saved to FHIR">
+            <i class="bi bi-check-circle-fill me-1"></i>Saved
           </button>
-          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="detailsShown.update(value => !value)" [class.active]="detailsShown()" title="Tool details"><i class="bi bi-list-task"></i></button>
-          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reasoningShown.update(value => !value)" [class.active]="reasoningShown()" title="Reasoning details"><i class="bi bi-lightbulb"></i></button>
-          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="refreshDiff()" title="Refresh workspace changes"><i class="bi bi-file-diff me-1"></i>Changes</button>
-        </div>
-      </div>
-      @if (inlineContext(); as context) {
-        <div class="editor-context-chip inline-context mb-2">
-          <i class="bi bi-magic"></i>
-          <span><strong>Inline edit</strong> · lines {{ context.startLine }}–{{ context.endLine }}</span>
-          <button type="button" class="btn-close btn-sm" aria-label="Remove inline edit context" (click)="clearInlineContext()"></button>
-        </div>
-      } @else if (selectedContext(); as context) {
-        <div class="editor-context-chip mb-2" title="The highlighted CQL will be attached to the next prompt">
-          <i class="bi bi-text-paragraph"></i>
-          <span>Selected CQL · lines {{ context.startLine }}–{{ context.endLine }}</span>
-        </div>
-      }
-      @if (attachments().length) {
-        <div class="attachment-list d-flex flex-wrap gap-1 mb-2" aria-label="Session attachments">
-          @for (attachment of attachments(); track attachment.id) {
-            <span class="attachment-chip" [title]="attachment.converted ? 'Converted to Markdown for OpenCode' : 'Attached for this session'">
-              <i class="bi" [class.bi-file-earmark-text]="!attachment.converted" [class.bi-file-earmark-richtext]="attachment.converted"></i>
-              <span>{{ attachment.name }}</span>
-              @if (attachment.converted) { <small>Markdown</small> }
-              <button type="button" class="btn-close btn-sm" aria-label="Remove attachment" (click)="removeAttachment(attachment)"></button>
-            </span>
+          } @else {
+          <button type="button" class="btn btn-sm btn-success" [id]="'opencode-save-' + diff.libraryId"
+            [disabled]="status() === 'busy' || environmentStale() || isDiffSaving(diff.file)"
+            (click)="applyAndSave(diff)"
+            [title]="vsacReferenceCount(diff) > 0 ? 'Apply the CQL change, import its VSAC ValueSets to the configured terminology server, and save the Library' : 'Apply the CQL change and save the Library'">
+            @if (isDiffSaving(diff.file)) { <span class="spinner-border spinner-border-sm me-1"></span>Saving… }
+            @else {
+            <i class="bi bi-check2 me-1"></i>
+            @if (vsacReferenceCount(diff) > 0) { Apply, import terminology &amp; save }
+            @else { Apply &amp; save }
+            }
+          </button>
           }
         </div>
-      }
-      <div class="composer-input">
-        @if (commandArgumentHelp(); as help) {
-          <div class="command-argument-help info-card border rounded p-2 mb-2">
-            <div class="d-flex align-items-baseline gap-2">
-              <code>{{ help.usage }}</code><span>{{ help.description }}</span>
-            </div>
-            <small class="text-body-secondary d-block mt-1">{{ help.hint }}</small>
-            @if (commandHelpLoading()) {
-              <small class="text-body-secondary d-block mt-1"><span class="spinner-border spinner-border-sm me-1"></span>Loading available options…</small>
-            }
-            @if (commandHelpError(); as helpError) {
-              <small class="text-danger d-block mt-1">{{ helpError }}</small>
-            }
-            @if (help.options.length) {
-              <div class="command-argument-options d-flex flex-wrap gap-1 mt-2">
-                @for (option of help.options; track option) {
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="chooseCommandArgument(option)">{{ option }}</button>
-                }
-              </div>
-            }
-          </div>
-        }
-        <textarea #promptInput class="form-control" rows="3" [ngModel]="promptText()" (ngModelChange)="onPromptChanged($event)" (keydown)="onPromptKeydown($event)" [disabled]="status() === 'busy' || environmentStale()" [placeholder]="sessionArchived() ? 'Type /resume to continue this saved session' : inlineContext() ? 'Describe the focused inline edit…' : 'Ask OpenCode… Type / for commands or @ for CQL files'"></textarea>
-        @if (visibleCommands().length) {
-          <div class="suggestion-menu">
-            @for (command of visibleCommands(); track command.name) { <button type="button" (click)="chooseCommand(command)"><code>/{{ command.name }}</code><span>{{ command.description }}</span></button> }
-          </div>
-        } @else if (fileSuggestions().length) {
-          <div class="suggestion-menu">
-            @for (file of fileSuggestions(); track file.path) { <button type="button" (click)="chooseFile(file)"><code>&#64;{{ file.path }}</code><span>{{ file.writable ? 'Workspace library' : 'Read-only dependency' }}</span></button> }
-          </div>
-        }
       </div>
-      <div class="d-flex justify-content-between align-items-center gap-2 mt-2">
-        <small class="text-body-secondary">Ctrl/⌘ + Enter to send</small>
-        @if (status() === 'busy') { <button type="button" class="btn btn-sm btn-outline-danger" (click)="stop()"><i class="bi bi-stop-fill me-1"></i>Stop</button> }
-        @else { <button type="button" class="btn btn-sm btn-primary" [disabled]="!canSend()" (click)="sendPrompt()"><i class="bi bi-send me-1"></i>Send</button> }
-      </div>
-    </footer>
+      <details>
+        <summary class="px-2 py-1">Review full change</summary>
+        <div class="diff-columns">
+          <div>
+            <div class="diff-label">Before</div>
+            <pre>{{ diff.before }}</pre>
+          </div>
+          <div>
+            <div class="diff-label">After</div>
+            <pre>{{ diff.after }}</pre>
+          </div>
+        </div>
+      </details>
+    </section>
+    }
+  </div>
+
+  @if (error()) {
+  <div class="alert alert-danger rounded-0 mb-0 py-2 px-3 d-flex justify-content-between align-items-center gap-2">
+    <small>{{ error() }}</small>
+    <div class="d-flex gap-2">@if (errorRetryable()) { <button class="btn btn-sm btn-outline-danger"
+        (click)="retryConnection()">Retry</button> }<button type="button" class="btn-close btn-sm"
+        (click)="error.set(null)"></button></div>
+  </div>
+  }
+  @if (liveConflict()) {
+  <div class="alert alert-warning rounded-0 mb-0 py-2 px-3 d-flex justify-content-between align-items-center gap-2">
+    <small>{{ liveConflict() }}</small>
+    <button type="button" class="btn-close btn-sm" (click)="liveConflict.set(null)"></button>
+  </div>
   }
 
-  @if (error() && !session()) { <div class="alert alert-danger rounded-0 mb-0 py-2 px-3"><small>{{ error() }}</small></div> }
+  <footer class="composer border-top p-2">
+    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+      <div class="btn-group btn-group-sm" role="group" aria-label="OpenCode agent">
+        <button type="button" class="btn" [class.btn-primary]="agent() === 'plan'"
+          [class.btn-secondary]="agent() !== 'plan'" (click)="agent.set('plan')">Plan</button>
+        <button type="button" class="btn" [class.btn-primary]="agent() === 'build'"
+          [class.btn-secondary]="agent() !== 'build'" (click)="agent.set('build')">Build</button>
+      </div>
+      <div class="d-flex gap-1">
+        <input #attachmentInput type="file" class="d-none" multiple (change)="onAttachmentsSelected($event)">
+        <button type="button" class="btn btn-sm btn-secondary" (click)="attachmentInput.click()"
+          [disabled]="uploadingAttachments() || environmentStale() || sessionArchived()" title="Attach context files">
+          @if (uploadingAttachments()) { <span class="spinner-border spinner-border-sm"></span> }
+          @else { <i class="bi bi-paperclip"></i> }
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary" (click)="detailsShown.update(value => !value)"
+          [class.active]="detailsShown()" title="Tool details"><i class="bi bi-list-task"></i></button>
+        <button type="button" class="btn btn-sm btn-secondary" (click)="reasoningShown.update(value => !value)"
+          [class.active]="reasoningShown()" title="Reasoning details"><i class="bi bi-lightbulb"></i></button>
+        <button type="button" class="btn btn-sm btn-secondary" (click)="refreshDiff()"
+          title="Refresh workspace changes"><i class="bi bi-file-diff me-1"></i>Changes</button>
+      </div>
+    </div>
+    @if (inlineContext(); as context) {
+    <div class="editor-context-chip inline-context mb-2">
+      <i class="bi bi-magic"></i>
+      <span><strong>Inline edit</strong> · lines {{ context.startLine }}–{{ context.endLine }}</span>
+      <button type="button" class="btn-close btn-sm" aria-label="Remove inline edit context"
+        (click)="clearInlineContext()"></button>
+    </div>
+    } @else if (selectedContext(); as context) {
+    <div class="editor-context-chip mb-2" title="The highlighted CQL will be attached to the next prompt">
+      <i class="bi bi-text-paragraph"></i>
+      <span>Selected CQL · lines {{ context.startLine }}–{{ context.endLine }}</span>
+    </div>
+    }
+    @if (attachments().length) {
+    <div class="attachment-list d-flex flex-wrap gap-1 mb-2" aria-label="Session attachments">
+      @for (attachment of attachments(); track attachment.id) {
+      <span class="attachment-chip"
+        [title]="attachment.converted ? 'Converted to Markdown for OpenCode' : 'Attached for this session'">
+        <i class="bi" [class.bi-file-earmark-text]="!attachment.converted"
+          [class.bi-file-earmark-richtext]="attachment.converted"></i>
+        <span>{{ attachment.name }}</span>
+        @if (attachment.converted) { <small>Markdown</small> }
+        <button type="button" class="btn-close btn-sm" aria-label="Remove attachment"
+          (click)="removeAttachment(attachment)"></button>
+      </span>
+      }
+    </div>
+    }
+    <div class="composer-input">
+      @if (commandArgumentHelp(); as help) {
+      <div class="command-argument-help info-card border rounded p-2 mb-2">
+        <div class="d-flex align-items-baseline gap-2">
+          <code>{{ help.usage }}</code><span>{{ help.description }}</span>
+        </div>
+        <small class="text-body-secondary d-block mt-1">{{ help.hint }}</small>
+        @if (commandHelpLoading()) {
+        <small class="text-body-secondary d-block mt-1"><span
+            class="spinner-border spinner-border-sm me-1"></span>Loading available options…</small>
+        }
+        @if (commandHelpError(); as helpError) {
+        <small class="text-danger d-block mt-1">{{ helpError }}</small>
+        }
+        @if (help.options.length) {
+        <div class="command-argument-options d-flex flex-wrap gap-1 mt-2">
+          @for (option of help.options; track option) {
+          <button type="button" class="btn btn-sm btn-secondary" (click)="chooseCommandArgument(option)">{{
+            option }}</button>
+          }
+        </div>
+        }
+      </div>
+      }
+      <textarea #promptInput class="form-control" rows="3" [ngModel]="promptText()"
+        (ngModelChange)="onPromptChanged($event)" (keydown)="onPromptKeydown($event)"
+        [disabled]="status() === 'busy' || environmentStale()"
+        [placeholder]="sessionArchived() ? 'Type /resume to continue this saved session' : inlineContext() ? 'Describe the focused inline edit…' : 'Ask OpenCode… Type / for commands or @ for CQL files'"></textarea>
+      @if (visibleCommands().length) {
+      <div class="suggestion-menu">
+        @for (command of visibleCommands(); track command.name) { <button type="button"
+          (click)="chooseCommand(command)"><code>/{{ command.name }}</code><span>{{ command.description
+            }}</span></button> }
+      </div>
+      } @else if (fileSuggestions().length) {
+      <div class="suggestion-menu">
+        @for (file of fileSuggestions(); track file.path) { <button type="button"
+          (click)="chooseFile(file)"><code>&#64;{{ file.path }}</code><span>{{ file.writable ? 'Workspace library' :
+            'Read-only dependency' }}</span></button> }
+      </div>
+      }
+    </div>
+    <div class="d-flex justify-content-between align-items-center gap-2 mt-2">
+      <small class="text-body-secondary">Ctrl/⌘ + Enter to send</small>
+      @if (status() === 'busy') { <button type="button" class="btn btn-sm btn-outline-danger" (click)="stop()"><i
+          class="bi bi-stop-fill me-1"></i>Stop</button> }
+      @else { <button type="button" class="btn btn-sm btn-primary" [disabled]="!canSend()" (click)="sendPrompt()"><i
+          class="bi bi-send me-1"></i>Send</button> }
+    </div>
+  </footer>
+  }
+
+  @if (error() && !session()) { <div class="alert alert-danger rounded-0 mb-0 py-2 px-3"><small>{{ error() }}</small>
+  </div> }
 </div>

@@ -10,7 +10,7 @@
   <!-- Editor Toolbar (shown whenever not loading, including when URL load failed) -->
   <div class="editor-toolbar border-bottom d-flex align-items-center justify-content-between px-3 py-2">
     <div class="d-flex align-items-center gap-2">
-      <button class="btn btn-outline-secondary btn-sm" (click)="onReloadLibrary()" title="Reload from Server">
+      <button class="btn btn-secondary btn-sm" (click)="onReloadLibrary()" title="Reload from Server">
         <i class="bi bi-arrow-clockwise me-1"></i>
         Reload
       </button>
@@ -75,11 +75,11 @@
               (ngModelChange)="expressionFilter.set($event)"
               (click)="$event.stopPropagation()">
             <div class="btn-group btn-group-sm flex-shrink-0" role="group" aria-label="Select expressions">
-              <button type="button" id="cql-editor-execute-select-all" class="btn btn-outline-secondary"
+              <button type="button" id="cql-editor-execute-select-all" class="btn btn-secondary"
                 (click)="selectAllExpressions()" [disabled]="expressions().length === 0">
                 All
               </button>
-              <button type="button" id="cql-editor-execute-select-none" class="btn btn-outline-secondary"
+              <button type="button" id="cql-editor-execute-select-none" class="btn btn-secondary"
                 (click)="selectNoExpressions()" [disabled]="selectedExpressionNames().size === 0">
                 None
               </button>

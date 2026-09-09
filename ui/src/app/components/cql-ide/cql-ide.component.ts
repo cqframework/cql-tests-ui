@@ -223,7 +223,7 @@ export class CqlIdeComponent implements OnInit, OnDestroy {
 
     const aiTab = {
       id: 'ai-tab',
-      title: 'OpenCode',
+      title: 'AI',
       icon: 'bi-terminal',
       type: 'ai',
       isActive: true,
@@ -330,7 +330,7 @@ export class CqlIdeComponent implements OnInit, OnDestroy {
       // Add AI tab
       const aiTab = {
         id: 'ai-tab',
-        title: 'OpenCode',
+        title: 'AI',
         icon: 'bi-terminal',
         type: 'ai',
         isActive: false,
