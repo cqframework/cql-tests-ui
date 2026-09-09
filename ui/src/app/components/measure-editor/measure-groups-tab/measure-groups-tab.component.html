@@ -3,7 +3,7 @@
   <div class="mb-3">
     <div class="d-flex align-items-center justify-content-between mb-2">
       <h6 class="small fw-semibold mb-0">Groups (0..*)</h6>
-      <button type="button" class="btn btn-outline-secondary btn-sm" id="measure-groups-add-group" (click)="addGroup()">
+      <button type="button" class="btn btn-secondary btn-sm" id="measure-groups-add-group" (click)="addGroup()">
         <i class="bi bi-plus-lg me-1"></i>Add group
       </button>
     </div>
@@ -13,7 +13,7 @@
         <span class="fw-medium">{{ group.id ?? ('Group ' + (gi + 1)) }}</span>
         @if (group.code) {
         <span class="text-muted small">{{ displayCodeableConcept(group.code) }}</span>
-        <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" title="Add group code to clipboard"
+        <button type="button" class="btn btn-secondary btn-sm py-0 px-1" title="Add group code to clipboard"
           (click)="addCodeableConceptToClipboard(group.code)">
           <i class="bi bi-clipboard-plus"></i>
         </button>
@@ -28,7 +28,7 @@
       <div class="mb-2">
         <div class="d-flex align-items-center justify-content-between mb-1">
           <span class="small fw-medium">Population (0..*)</span>
-          <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" (click)="addPopulation(gi)">
+          <button type="button" class="btn btn-secondary btn-sm py-0 px-1" (click)="addPopulation(gi)">
             <i class="bi bi-plus-lg"></i> Add
           </button>
         </div>
@@ -75,7 +75,7 @@
       <div class="mt-2">
         <div class="d-flex align-items-center justify-content-between mb-1">
           <span class="small fw-medium">Stratifier (0..*)</span>
-          <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" (click)="addStratifier(gi)">
+          <button type="button" class="btn btn-secondary btn-sm py-0 px-1" (click)="addStratifier(gi)">
             <i class="bi bi-plus-lg"></i> Add
           </button>
         </div>
@@ -103,7 +103,7 @@
               </td>
               <td class="p-1">
                 @if (strat.code?.coding?.length) {
-                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" title="Add to clipboard"
+                <button type="button" class="btn btn-secondary btn-sm py-0 px-1" title="Add to clipboard"
                   (click)="addCodeableConceptToClipboard(strat.code)">
                   <i class="bi bi-clipboard-plus"></i>
                 </button>
@@ -135,7 +135,7 @@
             }
             <tr class="table-light">
               <td colspan="4" class="p-1">
-                <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" (click)="addStratifierComponent(gi, si)">
+                <button type="button" class="btn btn-secondary btn-sm py-0 px-1" (click)="addStratifierComponent(gi, si)">
                   <i class="bi bi-plus-lg me-1"></i>Add component
                 </button>
               </td>
@@ -150,7 +150,7 @@
   </div>
   <div class="d-flex align-items-center justify-content-between mb-2">
     <h6 class="small fw-semibold mb-0">Supplemental data (0..*)</h6>
-    <button type="button" class="btn btn-outline-secondary btn-sm" id="measure-groups-add-supplemental" (click)="addSupplementalData()">
+    <button type="button" class="btn btn-secondary btn-sm" id="measure-groups-add-supplemental" (click)="addSupplementalData()">
       <i class="bi bi-plus-lg me-1"></i>Add supplemental data
     </button>
   </div>
@@ -187,7 +187,7 @@
         </td>
         <td class="p-1">
           @if (sd.code?.coding?.length) {
-          <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1" title="Add to clipboard"
+          <button type="button" class="btn btn-secondary btn-sm py-0 px-1" title="Add to clipboard"
             (click)="addCodeableConceptToClipboard(sd.code)">
             <i class="bi bi-clipboard-plus"></i>
           </button>

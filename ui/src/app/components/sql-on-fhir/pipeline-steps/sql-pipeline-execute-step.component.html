@@ -136,7 +136,7 @@
           <button
             id="sql-resource-types-select-all"
             type="button"
-            class="btn btn-outline-secondary btn-sm"
+            class="btn btn-secondary btn-sm"
             [disabled]="isLoadingPatientData()"
             (click)="selectAllExecutionResourceTypes.emit(true)"
           >
@@ -145,7 +145,7 @@
           <button
             id="sql-resource-types-select-none"
             type="button"
-            class="btn btn-outline-secondary btn-sm"
+            class="btn btn-secondary btn-sm"
             [disabled]="isLoadingPatientData()"
             (click)="selectAllExecutionResourceTypes.emit(false)"
           >
@@ -320,7 +320,7 @@
     <div class="sql-pipeline-subsection">
       <h3 id="sql-pipeline-measurereport-heading" class="h6 fw-semibold pb-2 mb-3 border-bottom">Measure Report</h3>
       <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-        <button id="btn-sql-generate-measurereport" type="button" class="btn btn-sm btn-outline-secondary" (click)="generateMeasureReport.emit()">
+        <button id="btn-sql-generate-measurereport" type="button" class="btn btn-sm btn-secondary" (click)="generateMeasureReport.emit()">
           Regenerate FHIR MeasureReport
         </button>
         <button

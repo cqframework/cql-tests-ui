@@ -35,7 +35,7 @@
     </div>
     <small class="form-text text-muted d-block mb-3">Most Ollama installations do not require a key. Provider keys remain in memory only and are cleared when the page reloads.</small>
     <div class="d-flex align-items-center gap-2 mb-3">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refreshProviderModels()" [disabled]="modelsLoading()">
+      <button type="button" class="btn btn-secondary btn-sm" (click)="refreshProviderModels()" [disabled]="modelsLoading()">
         <span class="bi bi-arrow-repeat me-1"></span>{{ modelsLoading() ? 'Loading models…' : 'Load models' }}
       </button>
       @if (providerModels().length > 0) { <small class="text-muted">{{ providerModels().length }} models loaded</small> }
@@ -66,7 +66,7 @@
       <label for="openaiApiKey">OpenAI API Key</label>
     </div>
     <div class="d-flex align-items-center gap-2 mb-3">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refreshProviderModels()" [disabled]="modelsLoading()">
+      <button type="button" class="btn btn-secondary btn-sm" (click)="refreshProviderModels()" [disabled]="modelsLoading()">
         <span class="bi bi-arrow-repeat me-1"></span>{{ modelsLoading() ? 'Loading models…' : 'Load models' }}
       </button>
       @if (providerModels().length > 0) { <small class="text-muted">{{ providerModels().length }} models loaded</small> }
@@ -106,7 +106,7 @@
       <label for="compatibleProviderApiKey">Provider API Key (Optional)</label>
     </div>
     <div class="d-flex align-items-center gap-2 mb-3">
-      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refreshProviderModels()" [disabled]="modelsLoading()">
+      <button type="button" class="btn btn-secondary btn-sm" (click)="refreshProviderModels()" [disabled]="modelsLoading()">
         <span class="bi bi-arrow-repeat me-1"></span>{{ modelsLoading() ? 'Loading models…' : 'Load models' }}
       </button>
       @if (providerModels().length > 0) { <small class="text-muted">{{ providerModels().length }} models loaded</small> }

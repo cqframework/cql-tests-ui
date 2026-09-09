@@ -13,7 +13,7 @@
       <button
         type="button"
         id="team-workspace-resources-add-all-clipboard"
-        class="btn btn-sm btn-outline-secondary"
+        class="btn btn-sm btn-secondary"
         [disabled]="resources().length === 0"
         title="Add all resource references to clipboard"
         (click)="addAllResourcesToClipboard()">
@@ -70,7 +70,7 @@
           }
           <button
             type="button"
-            class="btn btn-sm btn-outline-secondary"
+            class="btn btn-sm btn-secondary"
             [id]="'team-workspace-resource-clipboard-' + ref.id"
             title="Add to clipboard"
             (click)="addResourceToClipboard(ref)">

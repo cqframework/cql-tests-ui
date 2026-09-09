@@ -26,7 +26,7 @@
             [value]="header" (input)="updateHeader($index, headerInput.value)"
             placeholder="Header-Name: value" [disabled]="disabled()" [readOnly]="readonly()">
           @if (!readonly()) {
-          <button type="button" class="btn btn-outline-secondary" [id]="idPrefix() + '-remove-header-' + $index"
+          <button type="button" class="btn btn-secondary" [id]="idPrefix() + '-remove-header-' + $index"
             (click)="removeHeader($index)" [attr.aria-label]="'Remove header ' + ($index + 1)" [disabled]="disabled()">
             <span class="bi bi-trash" aria-hidden="true"></span>
           </button>
@@ -34,7 +34,7 @@
         </div>
       }
       @if (!readonly()) {
-      <button type="button" class="btn btn-sm btn-outline-secondary" [id]="idPrefix() + '-add-header'"
+      <button type="button" class="btn btn-sm btn-secondary" [id]="idPrefix() + '-add-header'"
         (click)="addHeader()" [disabled]="disabled()">
         <span class="bi bi-plus-lg me-1" aria-hidden="true"></span>Add header
       </button>
