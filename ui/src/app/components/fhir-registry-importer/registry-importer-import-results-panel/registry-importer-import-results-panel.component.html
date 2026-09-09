@@ -9,24 +9,24 @@
       <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Filter by outcome">
         <button id="fhir-registry-importer-import-filter-all" type="button" class="btn"
           [class.btn-primary]="outcomeFilter() === 'all'"
-          [class.btn-outline-secondary]="outcomeFilter() !== 'all'"
+          [class.btn-secondary]="outcomeFilter() !== 'all'"
           (click)="setOutcomeFilter('all')">
           All
         </button>
         <button id="fhir-registry-importer-import-filter-errors" type="button" class="btn"
           [class.btn-primary]="outcomeFilter() === 'errors'"
-          [class.btn-outline-secondary]="outcomeFilter() !== 'errors'"
+          [class.btn-secondary]="outcomeFilter() !== 'errors'"
           (click)="setOutcomeFilter('errors')">
           Errors only
         </button>
         <button id="fhir-registry-importer-import-filter-success" type="button" class="btn"
           [class.btn-primary]="outcomeFilter() === 'success'"
-          [class.btn-outline-secondary]="outcomeFilter() !== 'success'"
+          [class.btn-secondary]="outcomeFilter() !== 'success'"
           (click)="setOutcomeFilter('success')">
           Succeeded only
         </button>
       </div>
-      <button id="fhir-registry-importer-import-results-clear" type="button" class="btn btn-sm btn-outline-secondary"
+      <button id="fhir-registry-importer-import-results-clear" type="button" class="btn btn-sm btn-secondary"
         (click)="onClear()">
         Clear results
       </button>

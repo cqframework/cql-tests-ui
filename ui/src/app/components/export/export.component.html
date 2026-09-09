@@ -102,7 +102,7 @@
                 (keyup.enter)="loadLibraries()" />
               <label for="export-library-search">Search libraries</label>
             </div>
-            <button id="export-library-search-btn" type="button" class="btn btn-outline-secondary" (click)="loadLibraries()">
+            <button id="export-library-search-btn" type="button" class="btn btn-secondary" (click)="loadLibraries()">
               Search
             </button>
           </div>
@@ -144,7 +144,7 @@
               @for (lib of selectedLibraries(); track lib.id || lib.url || lib.name) {
                 <li class="mb-2 d-flex align-items-center justify-content-between gap-2">
                   <span class="fw-semibold">{{ lib.title || lib.name || lib.id }}</span>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="toggleLibrary(lib)">Remove</button>
+                  <button type="button" class="btn btn-sm btn-secondary" (click)="toggleLibrary(lib)">Remove</button>
                 </li>
               }
             </ul>
@@ -205,7 +205,7 @@
           <button
             id="export-reanalyze-btn"
             type="button"
-            class="btn btn-outline-secondary w-100"
+            class="btn btn-secondary w-100"
             [disabled]="graphLoading()"
             (click)="reanalyze()">
             Re-analyze
@@ -228,22 +228,22 @@
           <div class="d-flex align-items-center justify-content-between gap-3 align-self-stretch">
             <span class="small text-muted">Libraries</span>
             <div class="btn-group btn-group-sm" role="group" aria-label="Library selection">
-              <button type="button" class="btn btn-outline-secondary" id="export-select-all-libraries" (click)="selectAllOfKind('library')">All</button>
-              <button type="button" class="btn btn-outline-secondary" id="export-deselect-all-libraries" (click)="deselectAllOfKind('library')">None</button>
+              <button type="button" class="btn btn-secondary" id="export-select-all-libraries" (click)="selectAllOfKind('library')">All</button>
+              <button type="button" class="btn btn-secondary" id="export-deselect-all-libraries" (click)="deselectAllOfKind('library')">None</button>
             </div>
           </div>
           <div class="d-flex align-items-center justify-content-between gap-3 align-self-stretch">
             <span class="small text-muted">ValueSets</span>
             <div class="btn-group btn-group-sm" role="group" aria-label="ValueSet selection">
-              <button type="button" class="btn btn-outline-secondary" id="export-select-all-valuesets" (click)="selectAllOfKind('valueset')">All</button>
-              <button type="button" class="btn btn-outline-secondary" id="export-deselect-all-valuesets" (click)="deselectAllOfKind('valueset')">None</button>
+              <button type="button" class="btn btn-secondary" id="export-select-all-valuesets" (click)="selectAllOfKind('valueset')">All</button>
+              <button type="button" class="btn btn-secondary" id="export-deselect-all-valuesets" (click)="deselectAllOfKind('valueset')">None</button>
             </div>
           </div>
           <div class="d-flex align-items-center justify-content-between gap-3 align-self-stretch">
             <span class="small text-muted">CodeSystems</span>
             <div class="btn-group btn-group-sm" role="group" aria-label="CodeSystem selection">
-              <button type="button" class="btn btn-outline-secondary" id="export-select-all-codesystems" (click)="selectAllOfKind('codesystem')">All</button>
-              <button type="button" class="btn btn-outline-secondary" id="export-deselect-all-codesystems" (click)="deselectAllOfKind('codesystem')">None</button>
+              <button type="button" class="btn btn-secondary" id="export-select-all-codesystems" (click)="selectAllOfKind('codesystem')">All</button>
+              <button type="button" class="btn btn-secondary" id="export-deselect-all-codesystems" (click)="deselectAllOfKind('codesystem')">None</button>
             </div>
           </div>
         </div>

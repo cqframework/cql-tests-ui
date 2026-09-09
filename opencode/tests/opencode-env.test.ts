@@ -5,16 +5,38 @@ import test from 'node:test';
 import { DEFAULT_RUNNER_TOKEN, loadEnv } from '../src/config/env.js';
 import { OpenCodeFatalError } from '../src/fatal.js';
 
-const development = (): NodeJS.ProcessEnv => ({ CQL_STUDIO_OPENCODE_NODE_ENV: 'development' });
+const development = (): NodeJS.ProcessEnv => ({
+  CQL_STUDIO_OPENCODE_NODE_ENV: 'development',
+  CQL_STUDIO_OPENCODE_RUNNER_HOST: '127.0.0.1',
+  CQL_STUDIO_OPENCODE_RUNNER_PORT: '4097',
+  CQL_STUDIO_OPENCODE_INTERNAL_PORT: '4096',
+});
 
-test('uses host-safe OpenCode defaults', () => {
+test('loads provided OpenCode runner bind settings', () => {
   const env = loadEnv(development());
+  assert.equal(env.runnerHost, '127.0.0.1');
   assert.equal(env.runnerPort, 4097);
   assert.equal(env.internalPort, 4096);
   assert.equal(env.runnerToken, DEFAULT_RUNNER_TOKEN);
   assert.equal(env.workspaceRoot, './workspaces');
   assert.equal(env.rewriteLocalhost, false);
   assert.equal(env.providerStallMs, 180_000);
+});
+
+test('requires runner host and ports', () => {
+  assert.throws(() => loadEnv({ CQL_STUDIO_OPENCODE_NODE_ENV: 'development' }), /CQL_STUDIO_OPENCODE_RUNNER_HOST is required/);
+  assert.throws(
+    () => loadEnv({ ...development(), CQL_STUDIO_OPENCODE_RUNNER_HOST: '' }),
+    /CQL_STUDIO_OPENCODE_RUNNER_HOST is required/
+  );
+  assert.throws(
+    () => loadEnv({ ...development(), CQL_STUDIO_OPENCODE_RUNNER_PORT: undefined }),
+    /CQL_STUDIO_OPENCODE_RUNNER_PORT is required/
+  );
+  assert.throws(
+    () => loadEnv({ ...development(), CQL_STUDIO_OPENCODE_INTERNAL_PORT: undefined }),
+    /CQL_STUDIO_OPENCODE_INTERNAL_PORT is required/
+  );
 });
 
 test('validates ports and durations', () => {
@@ -34,10 +56,11 @@ test('validates ports and durations', () => {
 
 test('requires a non-default production token', () => {
   assert.throws(
-    () => loadEnv({ CQL_STUDIO_OPENCODE_NODE_ENV: 'production' }),
+    () => loadEnv({ ...development(), CQL_STUDIO_OPENCODE_NODE_ENV: 'production' }),
     /non-default secret/
   );
   assert.equal(loadEnv({
+    ...development(),
     CQL_STUDIO_OPENCODE_NODE_ENV: 'production',
     CQL_STUDIO_OPENCODE_RUNNER_TOKEN: 'a-production-runner-token-over-32-bytes',
   }).runnerToken, 'a-production-runner-token-over-32-bytes');

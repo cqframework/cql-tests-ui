@@ -1,0 +1,97 @@
+include:
+  - path: docker-compose.development.yml
+
+services:
+  cql-studio-opencode:
+    image: docker.io/hlseven/quality-cql-studio-opencode:latest
+    build:
+      context: ..
+      dockerfile: opencode/Dockerfile
+    container_name: cql-studio-opencode
+    ports:
+      - "4097:4097"
+    environment:
+      CQL_STUDIO_OPENCODE_NODE_ENV: development
+      CQL_STUDIO_OPENCODE_LOG_LEVEL: info
+      CQL_STUDIO_OPENCODE_RUNNER_HOST: 0.0.0.0
+      CQL_STUDIO_OPENCODE_RUNNER_PORT: "4097"
+      CQL_STUDIO_OPENCODE_RUNNER_TOKEN: cql-studio-opencode-development-only
+      CQL_STUDIO_OPENCODE_INTERNAL_PORT: "4096"
+      CQL_STUDIO_OPENCODE_SESSION_IDLE_MS: "3600000"
+      CQL_STUDIO_OPENCODE_CLEANUP_INTERVAL_MS: "60000"
+      CQL_STUDIO_OPENCODE_PROVIDER_STALL_MS: "180000"
+      CQL_STUDIO_OPENCODE_RUNNER_REWRITE_LOCALHOST: "true"
+      CQL_STUDIO_OPENCODE_WORKSPACE_ROOT: /app/opencode/workspaces
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - opencode-workspaces:/app/opencode/workspaces
+    restart: unless-stopped
+
+  cql-studio-server:
+    image: docker.io/p3000/cql-studio-server:latest
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    container_name: cql-studio-server
+    depends_on:
+      cql-studio-server-postgresql:
+        condition: service_healthy
+      authentik-server:
+        condition: service_started
+      cql-studio-opencode:
+        condition: service_healthy
+    ports:
+      - "3003:3003"
+    environment:
+      CQL_STUDIO_SERVER_NODE_ENV: development
+      CQL_STUDIO_SERVER_PORT: "3003"
+      CQL_STUDIO_SERVER_LOG_LEVEL: info
+      CQL_STUDIO_SERVER_CORS_ORIGIN: http://localhost:4200
+      CQL_STUDIO_SERVER_UI_BASE_URL: http://localhost:4200
+      CQL_STUDIO_SERVER_DATABASE_URL: postgresql://cql_studio:password@cql-studio-server-postgresql:5432/cql_studio_development
+      CQL_STUDIO_SERVER_SSO_ISSUER_URL: http://host.docker.internal:9000/application/o/cql-studio/
+      CQL_STUDIO_SERVER_SSO_CLIENT_ID: cql-studio-development
+      CQL_STUDIO_SERVER_SSO_CLIENT_SECRET: cql-studio-development-secret
+      CQL_STUDIO_SERVER_SSO_REDIRECT_URL: http://localhost:3003/api/auth/callback
+      CQL_STUDIO_SERVER_SSO_SCOPES: openid profile email
+      CQL_STUDIO_SERVER_SESSION_SECRET: cql-studio-development-session-secret
+      CQL_STUDIO_SERVER_OPENCODE_ENABLED: "true"
+      CQL_STUDIO_SERVER_OPENCODE_RUNNER_URL: http://cql-studio-opencode:4097
+      CQL_STUDIO_SERVER_OPENCODE_RUNNER_TOKEN: cql-studio-opencode-development-only
+      CQL_STUDIO_SERVER_OPENCODE_TOOL_BRIDGE_URL: http://cql-studio-server:3003/api/opencode/tool-bridge
+      CQL_STUDIO_SERVER_OPENCODE_SESSION_IDLE_MS: "3600000"
+      CQL_STUDIO_SERVER_OPENCODE_CLEANUP_INTERVAL_MS: "60000"
+      CQL_STUDIO_SERVER_OPENCODE_MAX_SESSIONS_PER_USER: "0"
+      CQL_STUDIO_SERVER_OPENCODE_MAX_SESSIONS_GLOBAL: "0"
+      CQL_STUDIO_SERVER_CQL_ASSETS_URL: http://localhost:4200/cql
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  cql-studio-ui:
+    image: docker.io/hlseven/quality-cql-studio:latest
+    build:
+      context: ..
+      dockerfile: ui/Dockerfile
+    container_name: cql-studio-ui
+    depends_on:
+      cql-studio-server:
+        condition: service_healthy
+    ports:
+      - "4200:80"
+    environment:
+      CQL_STUDIO_SERVER_BASE_URL: http://localhost:3003
+      CQL_STUDIO_RUNNER_BASE_URL: http://localhost:8091
+      CQL_STUDIO_RUNNER_FHIR_BASE_URL: http://hapi-r4-data:8080/fhir
+      CQL_STUDIO_FHIR_BASE_URL: http://localhost:8080/fhir
+      CQL_STUDIO_EVALUATION_SERVER_URL: http://localhost:8080/fhir
+      CQL_STUDIO_DEFAULT_TEST_RESULTS_INDEX_URL: http://localhost:8092/index.json
+      CQL_STUDIO_OLLAMA_BASE_URL: http://localhost:11434
+      CQL_STUDIO_FHIR_PACKAGE_REGISTRY_BASE_URL: https://packages.fhir.org
+      CQL_STUDIO_VSAC_FHIR_BASE_URL: https://cts.nlm.nih.gov/fhir
+      CQL_STUDIO_VSAC_BASIC_AUTH_USERNAME: apikey
+    restart: unless-stopped
+
+volumes:
+  opencode-workspaces:

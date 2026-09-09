@@ -321,13 +321,13 @@
         </span>
         @if (searchPagination().showNav) {
         <div class="btn-group btn-group-sm" role="group" aria-label="Search result pages">
-          <button type="button" id="vsac-search-page-first" class="btn btn-outline-secondary"
+          <button type="button" id="vsac-search-page-first" class="btn btn-secondary"
             [disabled]="!searchPagination().first || loading()" (click)="goSearchPage('first')">First</button>
-          <button type="button" id="vsac-search-page-prev" class="btn btn-outline-secondary"
+          <button type="button" id="vsac-search-page-prev" class="btn btn-secondary"
             [disabled]="!searchPagination().previous || loading()" (click)="goSearchPage('previous')">Previous</button>
-          <button type="button" id="vsac-search-page-next" class="btn btn-outline-secondary"
+          <button type="button" id="vsac-search-page-next" class="btn btn-secondary"
             [disabled]="!searchPagination().next || loading()" (click)="goSearchPage('next')">Next</button>
-          <button type="button" id="vsac-search-page-last" class="btn btn-outline-secondary"
+          <button type="button" id="vsac-search-page-last" class="btn btn-secondary"
             [disabled]="!searchPagination().last || loading()" (click)="goSearchPage('last')">Last</button>
         </div>
         }
@@ -435,16 +435,16 @@
           </form>
           <p class="form-text small text-muted mb-2">Example: <code>2.16.840.1.113883.3.464.1003.101.12.1001</code></p>
           <div class="btn-group btn-group-sm flex-wrap">
-            <button type="button" class="btn btn-outline-secondary" (click)="copyVsacOid()"
+            <button type="button" class="btn btn-secondary" (click)="copyVsacOid()"
               [disabled]="!loadedValueSet() && !oidInput().trim()">Copy OID</button>
-            <button type="button" class="btn btn-outline-secondary" (click)="copyCanonicalUrl()"
+            <button type="button" class="btn btn-secondary" (click)="copyCanonicalUrl()"
               [disabled]="!loadedValueSet()?.url">Copy URL</button>
-            <button type="button" class="btn btn-outline-secondary" (click)="copyCqlSnippet()"
+            <button type="button" class="btn btn-secondary" (click)="copyCqlSnippet()"
               [disabled]="!loadedValueSet()?.url">Copy CQL valueset</button>
           </div>
           <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
             @if (hasComposeValueSetReferences()) {
-            <button type="button" id="vsac-recurse-dependencies" class="btn btn-outline-secondary btn-sm"
+            <button type="button" id="vsac-recurse-dependencies" class="btn btn-secondary btn-sm"
               (click)="recurseDependenciesForLoadedValueSet()" [disabled]="loading() || dependencyBusy() || !loadedValueSet()">
               Rerun Dependency Analysis
             </button>
@@ -539,9 +539,9 @@
       <ng-template #vsacExpandPagination let-prevId="prevId" let-nextId="nextId">
         <span class="small text-muted">Paging uses <strong>Count</strong> and <strong>Offset</strong> above with Run $expand, or use the buttons.</span>
         <div class="btn-group btn-group-sm" role="group" aria-label="Expansion pages">
-          <button type="button" class="btn btn-outline-secondary" [id]="prevId"
+          <button type="button" class="btn btn-secondary" [id]="prevId"
             [disabled]="loading() || !expansionPageInfo().canPrev" (click)="expandGoPrevPage()">Previous page</button>
-          <button type="button" class="btn btn-outline-secondary" [id]="nextId"
+          <button type="button" class="btn btn-secondary" [id]="nextId"
             [disabled]="loading() || !expansionPageInfo().canNext" (click)="expandGoNextPage()">Next page</button>
         </div>
       </ng-template>

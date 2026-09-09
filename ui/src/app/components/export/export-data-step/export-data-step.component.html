@@ -28,7 +28,7 @@
             (keyup.enter)="onSearch()" />
           <label for="export-data-patient-search">Patient name</label>
         </div>
-        <button type="button" class="btn btn-outline-secondary" id="export-data-patient-search-btn" (click)="onSearch()">Search</button>
+        <button type="button" class="btn btn-secondary" id="export-data-patient-search-btn" (click)="onSearch()">Search</button>
       </div>
     }
 
@@ -45,7 +45,7 @@
             (keyup.enter)="onSearch()" />
           <label for="export-data-measure-search">Measure name or title</label>
         </div>
-        <button type="button" class="btn btn-outline-secondary" id="export-data-measure-search-btn" (click)="onSearch()">Search</button>
+        <button type="button" class="btn btn-secondary" id="export-data-measure-search-btn" (click)="onSearch()">Search</button>
       </div>
     }
 
@@ -70,7 +70,7 @@
           </div>
         </div>
         <div class="col-12">
-          <button type="button" class="btn btn-outline-secondary" id="export-data-mr-search-btn" (click)="onSearch()">Search</button>
+          <button type="button" class="btn btn-secondary" id="export-data-mr-search-btn" (click)="onSearch()">Search</button>
         </div>
       </div>
     }
@@ -104,7 +104,7 @@
           </div>
         </div>
         <div class="col-12">
-          <button type="button" class="btn btn-outline-secondary" id="export-data-clinical-search-btn" (click)="onSearch()">Search</button>
+          <button type="button" class="btn btn-secondary" id="export-data-clinical-search-btn" (click)="onSearch()">Search</button>
         </div>
       </div>
     }
@@ -124,7 +124,7 @@
           </div>
         </div>
         <div class="col-12">
-          <button type="button" class="btn btn-outline-secondary" id="export-data-ig-search-btn" (click)="onSearch()">Search</button>
+          <button type="button" class="btn btn-secondary" id="export-data-ig-search-btn" (click)="onSearch()">Search</button>
         </div>
       </div>
     }
@@ -153,7 +153,7 @@
           </div>
         </div>
         <div class="col-12">
-          <button type="button" class="btn btn-outline-secondary" id="export-data-other-search-btn" (click)="onSearch()">Search</button>
+          <button type="button" class="btn btn-secondary" id="export-data-other-search-btn" (click)="onSearch()">Search</button>
         </div>
       </div>
     }
@@ -192,9 +192,9 @@
           }
         </div>
         <div class="d-flex align-items-center gap-2 small text-muted" id="export-data-pagination">
-          <button type="button" class="btn btn-sm btn-outline-secondary" id="export-data-prev" [disabled]="currentPage() <= 1" (click)="goToPage(currentPage() - 1)">Previous</button>
+          <button type="button" class="btn btn-sm btn-secondary" id="export-data-prev" [disabled]="currentPage() <= 1" (click)="goToPage(currentPage() - 1)">Previous</button>
           <span>Page {{ currentPage() }} of {{ totalPages() }}</span>
-          <button type="button" class="btn btn-sm btn-outline-secondary" id="export-data-next" [disabled]="currentPage() >= totalPages()" (click)="goToPage(currentPage() + 1)">Next</button>
+          <button type="button" class="btn btn-sm btn-secondary" id="export-data-next" [disabled]="currentPage() >= totalPages()" (click)="goToPage(currentPage() + 1)">Next</button>
         </div>
       }
     }
@@ -229,7 +229,7 @@
         <div class="mb-3" [id]="'export-data-selected-' + group.resourceType">
           <div class="d-flex align-items-center justify-content-between mb-1">
             <span class="fw-semibold">{{ group.resourceType }} ({{ group.count }})</span>
-            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="clearType(group.resourceType)">Clear</button>
+            <button type="button" class="btn btn-sm btn-secondary" (click)="clearType(group.resourceType)">Clear</button>
           </div>
           <ul class="list-unstyled mb-0">
             @for (item of group.items; track item.key) {
@@ -244,7 +244,7 @@
                     <span class="badge text-bg-secondary">IG</span>
                   }
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="removeSelection(item.key)">Remove</button>
+                <button type="button" class="btn btn-sm btn-secondary" (click)="removeSelection(item.key)">Remove</button>
               </li>
             }
           </ul>

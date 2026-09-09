@@ -12,9 +12,11 @@ COPY core/src ./core/src
 COPY server/package.json server/tsconfig.json server/prisma.config.ts ./server/
 COPY server/prisma ./server/prisma
 COPY server/src ./server/src
+COPY opencode/package.json ./opencode/
 COPY ui/package.json ./ui/
 
-RUN npm ci --workspace=@cql-studio/server --workspace=@cql-studio/core --include-workspace-root
+# Workspace stubs only for opencode/ui. Ignore scripts during install; server build runs prisma generate.
+RUN npm ci --workspace=@cql-studio/server --workspace=@cql-studio/core --include-workspace-root --ignore-scripts
 
 RUN npm run build --workspace=@cql-studio/core \
   && npm run build --workspace=@cql-studio/server

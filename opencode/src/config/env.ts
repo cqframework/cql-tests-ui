@@ -12,6 +12,7 @@ export const DEFAULT_RUNNER_TOKEN = 'cql-studio-opencode-development-only';
 export interface OpenCodeEnv {
   nodeEnv: string;
   logLevel: PinoLogLevel;
+  runnerHost: string;
   runnerPort: number;
   runnerToken: string;
   internalPort: number;
@@ -26,6 +27,12 @@ export interface OpenCodeEnv {
 
 function configError(message: string): never {
   throw new OpenCodeFatalError(message, OpenCodeExitCode.CONFIG);
+}
+
+function required(name: string, value: string | undefined): string {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) configError(`${name} is required`);
+  return trimmed;
 }
 
 function parseLogLevel(raw: string | undefined): PinoLogLevel {
@@ -43,9 +50,11 @@ function positiveInteger(name: string, raw: string | undefined, fallback: number
   return value;
 }
 
-function portNumber(name: string, raw: string | undefined, fallback: number): number {
-  const value = positiveInteger(name, raw, fallback);
-  if (value > 65_535) configError(`${name} must be between 1 and 65535`);
+function requiredPort(name: string, raw: string | undefined): number {
+  const value = Number(required(name, raw));
+  if (!Number.isSafeInteger(value) || value <= 0 || value > 65_535) {
+    configError(`${name} must be an integer between 1 and 65535`);
+  }
   return value;
 }
 
@@ -68,8 +77,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): OpenCodeEnv {
     );
   }
 
-  const runnerPort = portNumber('CQL_STUDIO_OPENCODE_RUNNER_PORT', source.CQL_STUDIO_OPENCODE_RUNNER_PORT, 4097);
-  const internalPort = portNumber('CQL_STUDIO_OPENCODE_INTERNAL_PORT', source.CQL_STUDIO_OPENCODE_INTERNAL_PORT, 4096);
+  const runnerHost = required('CQL_STUDIO_OPENCODE_RUNNER_HOST', source.CQL_STUDIO_OPENCODE_RUNNER_HOST);
+  const runnerPort = requiredPort('CQL_STUDIO_OPENCODE_RUNNER_PORT', source.CQL_STUDIO_OPENCODE_RUNNER_PORT);
+  const internalPort = requiredPort('CQL_STUDIO_OPENCODE_INTERNAL_PORT', source.CQL_STUDIO_OPENCODE_INTERNAL_PORT);
   if (runnerPort === internalPort) {
     configError(`CQL_STUDIO_OPENCODE_RUNNER_PORT and CQL_STUDIO_OPENCODE_INTERNAL_PORT must differ (both are ${runnerPort})`);
   }
@@ -77,6 +87,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): OpenCodeEnv {
   return {
     nodeEnv,
     logLevel: parseLogLevel(source.CQL_STUDIO_OPENCODE_LOG_LEVEL),
+    runnerHost,
     runnerPort,
     runnerToken,
     internalPort,
