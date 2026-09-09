@@ -3,7 +3,7 @@
     <span class="bi bi-search me-2"></span>
     <span class="fw-medium">Find FHIR packages</span>
     @if (hasImportWorkspace()) {
-    <button id="fhir-registry-importer-toggle-search" type="button" class="btn btn-sm btn-outline-secondary ms-auto"
+    <button id="fhir-registry-importer-toggle-search" type="button" class="btn btn-sm btn-secondary ms-auto"
       (click)="toggleFindPackagesExpanded()">
       {{ findPackagesExpanded() ? 'Hide' : 'Show' }}
     </button>
@@ -55,7 +55,7 @@
         <span class="fw-medium small">Or upload a local FHIR package</span>
         <input type="file" id="fhir-registry-importer-local-package-input" class="d-none"
           accept=".tgz,.tar.gz,application/gzip" (change)="onLocalPackageFileSelect($event)" />
-        <label for="fhir-registry-importer-local-package-input" class="btn btn-sm btn-outline-secondary mb-0"
+        <label for="fhir-registry-importer-local-package-input" class="btn btn-sm btn-secondary mb-0"
           id="fhir-registry-importer-choose-local-package">
           @if (localPackageLoading() && nonRegistrySourceKind() === 'file') {
           <span class="spinner-border spinner-border-sm me-1" role="status"></span>
@@ -85,7 +85,7 @@
           <button
             id="fhir-registry-importer-package-url-load"
             type="button"
-            class="btn btn-outline-secondary"
+            class="btn btn-secondary"
             [disabled]="localPackageLoading()"
             (click)="onPackageUrlLoad()">
             @if (localPackageLoading() && nonRegistrySourceKind() === 'url') {

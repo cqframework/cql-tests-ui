@@ -1,31 +1,5 @@
-# Development-only stack: HAPI FHIR R4, Authentik IdP, cql-studio-server Postgres for SSO,
-# CQL Tests Runner, and CQL Tests Results.
-# Secrets below are intentionally hardcoded and checked in for local SSO testing.
-# Do not reuse these values in production.
-#
-# Usage:
-#   docker compose -f docker/docker-compose.development.yml up -d
-#   or from monorepo root:
-#   npm run docker:up
-#
-# Networking: run cql-studio-server and OpenCode on the host
-# (npm run start:server and npm run start:opencode), not in this compose file.
-# Authentik is published on host port 9000; host processes use http://localhost:9000.
-# Inside another container, localhost:9000 is that container — use host.docker.internal:9000
-# or join this compose network and use http://authentik-server:9000 for server-to-IdP calls.
-#
-# CQL Tests Runner:  http://localhost:8091  (container port 3000, `server` mode)
-# CQL Tests Results: http://localhost:8092/index.json  (nginx on container port 80)
-#
-# The runner container cannot use localhost for HAPI (that is the runner itself).
-# Point the runner's FHIR base URL at the compose service name, e.g.:
-#   Settings → Runner FHIR Base URL = http://hapi-r4-data:8080/fhir
-#   or export CQL_STUDIO_RUNNER_FHIR_BASE_URL=http://hapi-r4-data:8080/fhir
-# Browser/host access to HAPI remains http://localhost:8080/fhir.
-# Optional UI defaults for this stack:
-#   CQL_STUDIO_RUNNER_BASE_URL=http://localhost:8091
-#   CQL_STUDIO_RUNNER_FHIR_BASE_URL=http://hapi-r4-data:8080/fhir
-#   CQL_STUDIO_DEFAULT_TEST_RESULTS_INDEX_URL=http://localhost:8092/index.json
+# Local development infrastructure only. Secrets are for local SSO testing — not production.
+# App processes run on the host (`npm run start:server` / `start:opencode`); see docker-compose.full.yml for containers.
 
 services:
   hapi-r4-data:

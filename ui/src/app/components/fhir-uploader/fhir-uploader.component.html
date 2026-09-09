@@ -110,11 +110,11 @@
       <div class="mb-4">
         <div class="d-flex align-items-center mb-3">
           <h5 class="mb-0 me-2">Selected Files ({{ files().length + cqlFiles().length }})</h5>
-          <button type="button" class="btn btn-outline-secondary btn-sm me-3" (click)="toggleAllFiles()">
+          <button type="button" class="btn btn-secondary btn-sm me-3" (click)="toggleAllFiles()">
             <i class="bi bi-toggle-on"></i>Toggle All
           </button>
           @if (files().length > 0) {
-          <button type="button" class="btn btn-outline-secondary btn-sm" id="reorderForSynthea" (click)="reorderForSynthea()">
+          <button type="button" class="btn btn-secondary btn-sm" id="reorderForSynthea" (click)="reorderForSynthea()">
             Reorder Synthea Dependencies
           </button>
           }
@@ -158,11 +158,11 @@
                    </div>
                  }
                  <div class="btn-group" role="group">
-                   <button type="button" class="btn btn-sm btn-outline-secondary" (click)="moveFileUp(file.id)"
+                   <button type="button" class="btn btn-sm btn-secondary" (click)="moveFileUp(file.id)"
                      [disabled]="files().indexOf(file) === 0">
                      <i class="bi bi-arrow-up"></i>
                    </button>
-                   <button type="button" class="btn btn-sm btn-outline-secondary" (click)="moveFileDown(file.id)"
+                   <button type="button" class="btn btn-sm btn-secondary" (click)="moveFileDown(file.id)"
                      [disabled]="files().indexOf(file) === files().length - 1">
                      <i class="bi bi-arrow-down"></i>
                    </button>
@@ -187,7 +187,7 @@
                <div class="mb-3">
                  <button
                    type="button"
-                   class="btn btn-sm btn-outline-secondary mb-2"
+                   class="btn btn-sm btn-secondary mb-2"
                    [id]="'fhir-uploader-ig-toggle-' + file.id + '-' + igIndex"
                    (click)="toggleBundleIgExpanded(file.id, igIndex)">
                    {{ igState.expanded ? 'Hide' : 'Show' }} ImplementationGuide
@@ -264,11 +264,11 @@
                    </div>
                  }
                  <div class="btn-group" role="group">
-                   <button type="button" class="btn btn-sm btn-outline-secondary" (click)="moveCqlFileUp(cqlFile.id)"
+                   <button type="button" class="btn btn-sm btn-secondary" (click)="moveCqlFileUp(cqlFile.id)"
                      [disabled]="cqlFiles().indexOf(cqlFile) === 0">
                      <i class="bi bi-arrow-up"></i>
                    </button>
-                   <button type="button" class="btn btn-sm btn-outline-secondary" (click)="moveCqlFileDown(cqlFile.id)"
+                   <button type="button" class="btn btn-sm btn-secondary" (click)="moveCqlFileDown(cqlFile.id)"
                      [disabled]="cqlFiles().indexOf(cqlFile) === cqlFiles().length - 1">
                      <i class="bi bi-arrow-down"></i>
                    </button>

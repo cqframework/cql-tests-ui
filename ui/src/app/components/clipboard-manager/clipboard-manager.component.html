@@ -186,7 +186,7 @@
               @if (clipboardDistinctTypes().length > 0) {
               <div class="dropdown" data-bs-auto-close="outside">
                 <button id="clipboard-manager-type-filter-btn" type="button"
-                  class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown"
+                  class="btn btn-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown"
                   aria-expanded="false" [attr.aria-label]="'Filter by resource type'"
                   [title]="clipboardTypeFilters().length > 0 ? clipboardTypeFilters().length + ' type(s) selected' : 'Filter by resource type'">
                   Types
@@ -217,7 +217,7 @@
                 </ul>
               </div>
               }
-              <button id="clipboard-manager-clipboard-sort-order" type="button" class="btn btn-outline-secondary btn-sm"
+              <button id="clipboard-manager-clipboard-sort-order" type="button" class="btn btn-secondary btn-sm"
                 (click)="toggleClipboardSortOrder()"
                 [title]="'Sort ' + (clipboardSortOrder() === 'asc' ? 'Descending' : 'Ascending')">
                 <i class="bi" [class.bi-arrow-up]="clipboardSortOrder() === 'asc'"
@@ -234,7 +234,7 @@
             <div class="clipboard-manager-item border-bottom px-3 py-2">
               <div class="d-flex align-items-start gap-2">
                 <div class="flex-shrink-0">
-                  <button type="button" class="btn btn-sm btn-outline-secondary"
+                  <button type="button" class="btn btn-sm btn-secondary"
                     (click)="toggleClipboardItemExpanded(item)"
                     [title]="isClipboardItemExpanded(item) ? 'Collapse' : 'Expand JSON'">
                     <i class="bi" [class.bi-chevron-down]="!isClipboardItemExpanded(item)"

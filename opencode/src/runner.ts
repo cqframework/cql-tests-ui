@@ -267,6 +267,9 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 await runtime.initialize();
-app.listen(env.runnerPort, '127.0.0.1', () => {
-  openCodeLogger.info({ operation: 'runner.listen', port: env.runnerPort }, 'CQL Studio OpenCode runner listening');
+app.listen(env.runnerPort, env.runnerHost, () => {
+  openCodeLogger.info(
+    { operation: 'runner.listen', host: env.runnerHost, port: env.runnerPort },
+    'CQL Studio OpenCode runner listening'
+  );
 });

@@ -23,7 +23,7 @@
               class="btn btn-sm rounded-pill"
               [id]="badgeFilterId(badge)"
               [class.btn-primary]="isBadgeSelected(badge)"
-              [class.btn-outline-secondary]="!isBadgeSelected(badge)"
+              [class.btn-secondary]="!isBadgeSelected(badge)"
               (click)="toggleBadgeFilter(badge)">
               {{ badge }}
             </button>

@@ -11,9 +11,9 @@ COPY core/package.json core/tsconfig.json ./core/
 COPY core/src ./core/src
 COPY ui/package.json ui/tsconfig.json ui/tsconfig.app.json ui/angular.json ./ui/
 COPY server/package.json ./server/
+COPY opencode/package.json ./opencode/
 
-# Workspace install pulls server (package.json only); skip its postinstall
-# prisma generate (schema and database URL are not in this image).
+# Workspace stubs only for server/opencode; skip lifecycle scripts (server prisma postinstall).
 RUN npm ci --ignore-scripts
 
 COPY ui ./ui

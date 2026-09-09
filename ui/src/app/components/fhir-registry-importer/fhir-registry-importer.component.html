@@ -23,7 +23,7 @@
         <div class="card-header py-2 d-flex flex-wrap align-items-center gap-2">
           <span class="fw-medium">Import summary</span>
           @if (planList().length > 0) {
-          <button id="fhir-registry-importer-summary-jump-import" type="button" class="btn btn-sm btn-outline-secondary ms-auto"
+          <button id="fhir-registry-importer-summary-jump-import" type="button" class="btn btn-sm btn-secondary ms-auto"
             (click)="scrollToImportWorkspace()">
             Jump to import
           </button>
@@ -173,10 +173,10 @@
             <div class="d-flex flex-wrap gap-2 align-items-center mb-2" role="group"
               aria-label="Select or clear import for all packages in the plan">
               <button id="fhir-registry-importer-plan-include-all" type="button"
-                class="btn btn-sm btn-outline-secondary" (click)="setIncludeAllPackagesForImport(true)">
+                class="btn btn-sm btn-secondary" (click)="setIncludeAllPackagesForImport(true)">
 Select All              </button>
               <button id="fhir-registry-importer-plan-exclude-all" type="button"
-                class="btn btn-sm btn-outline-secondary" (click)="setIncludeAllPackagesForImport(false)">
+                class="btn btn-sm btn-secondary" (click)="setIncludeAllPackagesForImport(false)">
 Select None              </button>
             </div>
             <ul class="list-group list-group-flush small" id="fhir-registry-importer-package-plan-list">
@@ -355,11 +355,11 @@ Select None              </button>
               </div>
               <div class="btn-group btn-group-sm" role="group" aria-label="Select or unselect example files">
                 <button id="fhir-registry-importer-examples-select" type="button"
-                  class="btn btn-outline-secondary" (click)="setExampleRowsSelected(true)">
+                  class="btn btn-secondary" (click)="setExampleRowsSelected(true)">
                   Select examples
                 </button>
                 <button id="fhir-registry-importer-examples-unselect" type="button"
-                  class="btn btn-outline-secondary" (click)="setExampleRowsSelected(false)">
+                  class="btn btn-secondary" (click)="setExampleRowsSelected(false)">
                   Unselect examples
                 </button>
               </div>
@@ -395,21 +395,21 @@ Select None              </button>
 
             <div class="d-flex flex-wrap gap-2 mb-3">
               <div class="btn-group btn-group-sm" role="group" aria-label="Select or unselect terminology target">
-                <button id="fhir-registry-importer-visible-target-term-on" type="button" class="btn btn-outline-secondary"
+                <button id="fhir-registry-importer-visible-target-term-on" type="button" class="btn btn-secondary"
                   (click)="setVisibleTargets('terminology', true)">
                   Select terminology target
                 </button>
-                <button id="fhir-registry-importer-visible-target-term-off" type="button" class="btn btn-outline-secondary"
+                <button id="fhir-registry-importer-visible-target-term-off" type="button" class="btn btn-secondary"
                   (click)="setVisibleTargets('terminology', false)">
                   Unselect terminology target
                 </button>
               </div>
               <div class="btn-group btn-group-sm" role="group" aria-label="Select or unselect FHIR data target">
-                <button id="fhir-registry-importer-visible-target-data-on" type="button" class="btn btn-outline-secondary"
+                <button id="fhir-registry-importer-visible-target-data-on" type="button" class="btn btn-secondary"
                   (click)="setVisibleTargets('data', true)">
                   Select FHIR data target
                 </button>
-                <button id="fhir-registry-importer-visible-target-data-off" type="button" class="btn btn-outline-secondary"
+                <button id="fhir-registry-importer-visible-target-data-off" type="button" class="btn btn-secondary"
                   (click)="setVisibleTargets('data', false)">
                   Unselect FHIR data target
                 </button>
@@ -543,7 +543,7 @@ Select None              </button>
               Resolve dependency chain
             </button>
             <button [attr.id]="'fhir-registry-importer-load-all-button' + idSuffix" type="button"
-              class="btn btn-outline-secondary" [disabled]="packageLoading() || planList().length === 0"
+              class="btn btn-secondary" [disabled]="packageLoading() || planList().length === 0"
               (click)="loadAllPackagesForImport()">
               Preload all packages
             </button>
