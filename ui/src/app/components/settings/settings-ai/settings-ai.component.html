@@ -147,3 +147,18 @@
     <label class="form-check-label" for="enableAiCodePrediction"><span class="bi bi-stars"></span> Enable inline CQL code prediction</label>
   </div>
 }
+<hr class="my-4">
+<div class="mb-1">
+  <h6 class="card-title mb-2" id="settings-ai-data-section">
+    <span class="bi bi-trash me-2"></span>AI data
+  </h6>
+  <p class="text-muted small mb-3">
+    Permanently remove all AI OpenCode sessions, conversation history, and related data stored for your account.
+    Provider settings and data are not affected.
+  </p>
+  <button type="button" class="btn btn-outline-danger btn-sm" id="settings-ai-delete-all-sessions"
+    (click)="deleteAllOpenCodeSessions()" [disabled]="deletingSessions()">
+    <span class="bi bi-trash me-1"></span>
+    {{ deletingSessions() ? 'Deleting…' : 'Delete all OpenCode sessions' }}
+  </button>
+</div>

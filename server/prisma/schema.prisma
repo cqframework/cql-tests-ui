@@ -65,13 +65,13 @@ model User {
   compatibleProviderBaseUrl  String  @default("")
   compatibleProviderModel    String  @default("")
   searxngBaseUrl             String  @default("")
-  enableAiAssistant          Boolean @default(false)
+  enableAiAssistant          Boolean @default(true)
   useMCPTools                Boolean @default(false)
   allowAiWriteOperations     Boolean @default(false)
-  autoApplyCodeEdits         Boolean @default(false)
+  autoApplyCodeEdits         Boolean @default(true)
   requireDiffPreview         Boolean @default(false)
   planActSeparateModels      Boolean @default(false)
-  enableAiCodePrediction     Boolean @default(false)
+  enableAiCodePrediction     Boolean @default(true)
 
   sessions              Session[]
   teamMemberships       TeamMembership[]

@@ -83,7 +83,7 @@ test('gateway strips browser-only context and retains trusted local Workspace or
     opencodeEnabled: true,
     opencodeRunnerUrl: baseUrl(runnerServer),
     opencodeRunnerToken: 'test-runner-token',
-    opencodeToolBridgeUrl: 'http://host.docker.internal:3003/api/opencode/tool-bridge',
+    opencodeToolBridgeUrl: 'http://127.0.0.1:3003/api/opencode/tool-bridge',
     opencodeSessionIdleMs: 60_000,
     opencodeCleanupIntervalMs: 60_000,
     opencodeMaxSessionsPerUser: 0,
@@ -173,4 +173,94 @@ test('gateway strips browser-only context and retains trusted local Workspace or
     { method: 'POST' }
   );
   assert.equal(archiveResponse.status, 204);
+});
+
+test('gateway DELETE /sessions removes every live session owned by the caller', async t => {
+  const deletedRunnerIds: string[] = [];
+  const runnerSession = {
+    id: 'runner-session-purge',
+    openCodeSessionId: 'opencode-session-purge',
+    title: 'Purge test',
+    status: 'idle' as const,
+    activeLibraryId: 'library-1',
+    activeFile: 'libraries/Test.cql',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    lastActivityAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    model: 'ollama/test',
+    reasoningEnabled: false,
+  };
+
+  const runner = express();
+  runner.use(express.json({ limit: '20mb' }));
+  runner.delete('/sessions', (_req, res) => res.status(204).send());
+  runner.post('/sessions', (_req, res) => res.status(201).json(runnerSession));
+  runner.delete('/sessions/:id', (req, res) => {
+    deletedRunnerIds.push(req.params.id);
+    res.status(204).send();
+  });
+  const runnerServer = await listen(runner);
+  t.after(() => runnerServer.close());
+
+  const env: ServerEnv = {
+    port: 3003,
+    nodeEnv: 'development',
+    logLevel: 'silent',
+    corsOrigin: 'http://localhost:4200',
+    uiBaseUrl: 'http://localhost:4200',
+    ssoIssuerUrl: '',
+    ssoClientId: '',
+    ssoClientSecret: '',
+    ssoClientSecretPrevious: [],
+    ssoRedirectUrl: '',
+    ssoScopes: 'openid profile email',
+    sessionSecret: '',
+    sessionSecrets: [],
+    databaseUrl: '',
+    opencodeEnabled: true,
+    opencodeRunnerUrl: baseUrl(runnerServer),
+    opencodeRunnerToken: 'test-runner-token',
+    opencodeToolBridgeUrl: 'http://127.0.0.1:3003/api/opencode/tool-bridge',
+    opencodeSessionIdleMs: 60_000,
+    opencodeCleanupIntervalMs: 60_000,
+    opencodeMaxSessionsPerUser: 0,
+    opencodeMaxSessionsGlobal: 0,
+    cqlAssetsDirectory: undefined,
+    cqlAssetsUrl: 'http://localhost:4200/cql',
+  };
+
+  const gateway = express();
+  gateway.use(express.json({ limit: '20mb' }));
+  gateway.use('/api/opencode', createOpenCodeGateway(env));
+  const gatewayServer = await listen(gateway);
+  t.after(() => gatewayServer.close());
+
+  const createResponse = await fetch(`${baseUrl(gatewayServer)}/api/opencode/sessions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      provider: { type: 'ollama', model: 'test', baseUrl: 'http://localhost:11434' },
+      ollamaBaseUrl: 'http://localhost:11434',
+      ollamaModel: 'test',
+      activeLibrary: {
+        id: 'library-1',
+        name: 'Test',
+        cqlContent: "library Test version '1.0.0'",
+      },
+      dependencies: [],
+    }),
+  });
+  assert.equal(createResponse.status, 201);
+
+  const deleteResponse = await fetch(`${baseUrl(gatewayServer)}/api/opencode/sessions`, {
+    method: 'DELETE',
+  });
+  assert.equal(deleteResponse.status, 200);
+  assert.deepEqual(await deleteResponse.json(), { deleted: 1 });
+  assert.deepEqual(deletedRunnerIds, ['runner-session-purge']);
+
+  const listAfter = await fetch(`${baseUrl(gatewayServer)}/api/opencode/sessions`);
+  assert.equal(listAfter.status, 200);
+  assert.deepEqual(await listAfter.json(), []);
 });

@@ -6,7 +6,8 @@ CQL Studio is an integrated web application suite and developer platform for dev
 
 The codebase is organized as an npm monorepo with strict TypeScript typing:
 - **`core/`** (`@cql-studio/core`) – Shared domain models, authentication/user types, team & workspace models, activity tracking, endpoint configurations, and MCP tool definitions.
-- **`server/`** (`@cql-studio/server`) – Express and Node.js ESM backend, Prisma ORM, MCP tool orchestrator, Ollama & VSAC proxies, and OIDC BFF session authentication.
+- **`server/`** (`@cql-studio/server`) – Express and Node.js ESM backend, Prisma ORM, authenticated OpenCode gateway, MCP tool orchestrator, Ollama & VSAC proxies, and OIDC BFF session authentication.
+- **`opencode/`** (`@cql-studio/opencode`) – Private host-run OpenCode service for isolated AI session filesystems and the embedded OpenCode runtime.
 - **`ui/`** (`@cql-studio/ui`) – Angular 22 standalone frontend with CodeMirror 6, Bootstrap 5, and in-browser SQL on FHIR engine.
 - **`docker/`** – Local Docker Compose stack providing PostgreSQL (CQL Studio DB & Authentik), Authentik (SSO/OIDC), and HAPI FHIR R4 JPA server.
 - **`doc/`** – Architecture documentation, PlantUML diagrams, and SQL on FHIR guides.
@@ -46,7 +47,7 @@ npm run diagram
 
 ## Prerequisites
 
-- **Node.js 26+** (monorepo root for both UI and server workspaces)
+- **Node.js 26+** (monorepo root for UI, server, and OpenCode workspaces)
 - **npm** (workspace support)
 - **Docker & Docker Compose** (PostgreSQL, Authentik, HAPI FHIR R4)
 - **PlantUML** (optional, for regenerating architectural diagrams under `doc/`)
@@ -57,26 +58,27 @@ npm run diagram
 
 ### 1. Start Docker Development Services
 
-Start the private OpenCode runner and all local backing infrastructure services using the development compose file:
+Start the local backing infrastructure services using the development compose file. The OpenCode service runs on the host in a later step:
 
 ```bash
 # Recommended from the monorepo root:
 npm run docker:up
 
 # Equivalent direct command:
-docker compose -f docker/docker-compose.development.yml up -d --build --pull always --remove-orphans
+docker compose -f docker/docker-compose.development.yml up -d --pull always --remove-orphans
 ```
 
 ### 2. Configure Environment
 
-Create the ignored local UI and server environment files from the development templates:
+Create the ignored local UI, server, and OpenCode environment files from the development templates:
 
 ```bash
 cp ui/.env.example ui/.env
 cp server/.env.example server/.env
+cp opencode/.env.example opencode/.env
 ```
 
-The UI start script loads `ui/.env`, and the server loads `server/.env`. Both files
+The UI, server, and OpenCode start scripts load their package-local `.env` files. These files
 are optional: when one is absent, values exported by the parent shell are used.
 When a file is present, variables declared in it take precedence while omitted
 variables still fall back to the shell environment. To use a remote Ollama
@@ -103,17 +105,24 @@ Run Prisma migrations on the development database:
 npm run prisma:migrate
 ```
 
-### 5. Start Server and UI from Source
+### 5. Start Server, OpenCode, and UI from Source
 
-Run both the server and UI concurrently in separate terminals:
+Run the three host processes concurrently in separate terminals:
 
 ```bash
 # Terminal 1: Start the backend API & MCP Server (runs in watch mode via tsx)
 npm run start:server
 
-# Terminal 2: Start the Angular UI development server (runs on port 4200)
+# Terminal 2: Start the private OpenCode service (runs on loopback port 4097)
+npm run start:opencode
+
+# Terminal 3: Start the Angular UI development server (runs on port 4200)
 npm run start:ui
 ```
+
+MarkItDown is optional and only required for PDF/DOCX AI attachments. Install it with
+`python3 -m pip install 'markitdown[pdf,docx]==0.1.7'`; ordinary CQL chat and MCP tools
+remain available when it is absent.
 
 Once running, open your browser and navigate to `http://localhost:4200/`.
 
@@ -162,13 +171,25 @@ Server configuration uses the `CQL_STUDIO_SERVER_*` prefix:
 | `CQL_STUDIO_SERVER_UI_BASE_URL` | Yes | `http://localhost:4200` | Base URL of the Angular UI |
 | `CQL_STUDIO_SERVER_SESSION_SECRET` | Yes | `cql-studio-development-session-secret` | Secret key for signing session cookies |
 | `CQL_STUDIO_SERVER_OPENCODE_ENABLED` | No | `true` in development | Enables the OpenCode gateway |
-| `CQL_STUDIO_SERVER_OPENCODE_RUNNER_URL` | No | `http://localhost:4097` | Private runner base URL |
+| `CQL_STUDIO_SERVER_OPENCODE_RUNNER_URL` | No | `http://127.0.0.1:4097` | Private host-run OpenCode base URL |
 | `CQL_STUDIO_SERVER_OPENCODE_RUNNER_TOKEN` | Production | Development-only shared token | Gateway-to-runner credential; must be at least 32 bytes and non-default in production |
-| `CQL_STUDIO_SERVER_OPENCODE_TOOL_BRIDGE_URL` | No | `http://host.docker.internal:3003/api/opencode/tool-bridge` | Gateway URL used by the runner's MCP subprocess |
+| `CQL_STUDIO_SERVER_OPENCODE_TOOL_BRIDGE_URL` | No | `http://127.0.0.1:3003/api/opencode/tool-bridge` | Gateway callback used by the OpenCode MCP subprocess |
 | `CQL_STUDIO_SERVER_OPENCODE_SESSION_IDLE_MS` | No | `3600000` | Session idle expiration |
 | `CQL_STUDIO_SERVER_OPENCODE_CLEANUP_INTERVAL_MS` | No | `60000` | Orphan session cleanup interval |
 | `CQL_STUDIO_SERVER_OPENCODE_MAX_SESSIONS_PER_USER` | No | `0` | Per-user session limit; zero is unlimited |
 | `CQL_STUDIO_SERVER_OPENCODE_MAX_SESSIONS_GLOBAL` | No | `0` | Global process session limit; zero is unlimited |
+
+OpenCode host-process configuration uses `CQL_STUDIO_OPENCODE_*` variables from `opencode/.env`:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `CQL_STUDIO_OPENCODE_RUNNER_PORT` | `4097` | Private loopback HTTP API |
+| `CQL_STUDIO_OPENCODE_RUNNER_TOKEN` | Development-only shared token | Must match the server setting; use a non-default 32-byte secret in production |
+| `CQL_STUDIO_OPENCODE_INTERNAL_PORT` | `4096` | Embedded OpenCode loopback port |
+| `CQL_STUDIO_OPENCODE_WORKSPACE_ROOT` | `./workspaces` | Ephemeral host session filesystems |
+| `CQL_STUDIO_OPENCODE_RUNNER_REWRITE_LOCALHOST` | `false` | Whether local provider URLs are rewritten for a container host |
+| `CQL_STUDIO_OPENCODE_PROVIDER_STALL_MS` | `180000` | Maximum provider wait without session progress |
+| `CQL_STUDIO_OPENCODE_MARKITDOWN_BIN` | PATH lookup | Optional MarkItDown executable for PDF/DOCX conversion |
 
 UI deploy-time variables are loaded from `ui/.env`; the example values match the
 development Compose stack:

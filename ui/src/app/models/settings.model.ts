@@ -46,9 +46,9 @@ export class Settings {
     public compatibleProviderModel: string = '';
     public serverBaseUrl: string = '';
     public searxngBaseUrl: string = '';
-    public enableAiAssistant: boolean = false;
-    public autoApplyCodeEdits: boolean = false;
-    public enableAiCodePrediction: boolean = false;
+    public enableAiAssistant: boolean = true;
+    public autoApplyCodeEdits: boolean = true;
+    public enableAiCodePrediction: boolean = true;
 
     public static DEFAULT_THEME = ThemeType.AUTOMATIC;
 }

@@ -18,7 +18,7 @@ import { createAuthRouter } from './auth/routes.js';
 import { createTeamRouter } from './team/routes.js';
 import { createActivityRouter, createWorkspaceRouter } from './workspace/routes.js';
 import { createOpenCodeGateway } from './opencode/gateway.js';
-import { OpenCodeError } from './opencode/errors.js';
+import { OpenCodeError } from '@cql-studio/core';
 import { configureOpenCodeLogger } from './opencode/logger.js';
 import { createUserSettingsRouter } from './user/routes.js';
 

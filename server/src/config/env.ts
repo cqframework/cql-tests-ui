@@ -186,11 +186,11 @@ export function loadEnv(): ServerEnv {
     opencodeEnabled,
     opencodeRunnerUrl:
       process.env.CQL_STUDIO_SERVER_OPENCODE_RUNNER_URL?.trim().replace(/\/+$/, '') ||
-      'http://localhost:4097',
+      'http://127.0.0.1:4097',
     opencodeRunnerToken,
     opencodeToolBridgeUrl:
       process.env.CQL_STUDIO_SERVER_OPENCODE_TOOL_BRIDGE_URL?.trim().replace(/\/+$/, '') ||
-      `http://host.docker.internal:${port}/api/opencode/tool-bridge`,
+      `http://127.0.0.1:${port}/api/opencode/tool-bridge`,
     opencodeSessionIdleMs: nonNegativeInteger(
       'CQL_STUDIO_SERVER_OPENCODE_SESSION_IDLE_MS',
       process.env.CQL_STUDIO_SERVER_OPENCODE_SESSION_IDLE_MS,

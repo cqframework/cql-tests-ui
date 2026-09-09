@@ -1,0 +1,36 @@
+{
+  "name": "@cql-studio/opencode",
+  "version": "1.0.0",
+  "description": "Private OpenCode runner for CQL Studio AI sessions",
+  "type": "module",
+  "private": true,
+  "main": "dist/runner.js",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/runner.js",
+    "dev": "npm run build && node dist/runner.js",
+    "watch": "npm run build && node --watch dist/runner.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "test": "node --test --import tsx tests/opencode-env.test.ts tests/opencode-workspace.test.ts"
+  },
+  "author": "Preston Lee",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@cql-studio/core": "file:../core",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@opencode-ai/sdk": "^1.18.18",
+    "express": "^5.2.1",
+    "opencode-ai": "^1.18.18",
+    "pino": "^10.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.4.1",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}

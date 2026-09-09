@@ -27,6 +27,9 @@ test-results/
 playwright-report/
 .playwright-mcp/
 
+# OpenCode session workspaces
+opencode/workspaces/
+
 # Logs
 *.log
 logs/

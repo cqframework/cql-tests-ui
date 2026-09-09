@@ -1,21 +1,29 @@
 // Author: Preston Lee
 
+import './load-env.js';
 import express from 'express';
 import pino from 'pino';
 import type { Request, Response, NextFunction } from 'express';
 import { timingSafeEqual } from 'node:crypto';
 import type { CreateOpenCodeSessionRequest, OpenCodePermissionResponse, OpenCodePromptRequest } from '@cql-studio/core';
-import { normalizeOpenCodeError, OpenCodeError } from './errors.js';
+import { normalizeOpenCodeError, OpenCodeError } from '@cql-studio/core';
+import { loadEnv } from './config/env.js';
+import { exitCodeForFatal } from './fatal.js';
 import { configureOpenCodeLogger, openCodeLogger } from './logger.js';
 import { OpenCodeRuntime } from './runtime.js';
 
+let env: ReturnType<typeof loadEnv>;
+try {
+  env = loadEnv();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(exitCodeForFatal(error));
+}
 const app = express();
-const runtime = new OpenCodeRuntime();
-const port = Number.parseInt(process.env.CQL_STUDIO_SERVER_OPENCODE_RUNNER_PORT || '4097', 10);
-const token = process.env.CQL_STUDIO_SERVER_OPENCODE_RUNNER_TOKEN || 'cql-studio-opencode-development-only';
-const nodeEnv = process.env.CQL_STUDIO_SERVER_NODE_ENV || 'development';
+const runtime = new OpenCodeRuntime(env);
+const token = env.runnerToken;
 configureOpenCodeLogger(pino({
-  level: process.env.CQL_STUDIO_SERVER_LOG_LEVEL || 'info',
+  level: env.logLevel,
   redact: {
     paths: [
       '*.authorization',
@@ -31,10 +39,6 @@ configureOpenCodeLogger(pino({
     censor: '[REDACTED]',
   },
 }).child({ service: 'opencode-runner' }));
-if (nodeEnv !== 'development' && (token === 'cql-studio-opencode-development-only' || Buffer.byteLength(token) < 32)) {
-  throw new Error('CQL_STUDIO_SERVER_OPENCODE_RUNNER_TOKEN must be a non-default secret of at least 32 bytes in production');
-}
-
 function validToken(candidate: string | undefined): boolean {
   if (!candidate) return false;
   const expected = Buffer.from(token);
@@ -250,6 +254,6 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 await runtime.initialize();
-app.listen(port, '0.0.0.0', () => {
-  openCodeLogger.info({ operation: 'runner.listen', port }, 'CQL Studio OpenCode runner listening');
+app.listen(env.runnerPort, '127.0.0.1', () => {
+  openCodeLogger.info({ operation: 'runner.listen', port: env.runnerPort }, 'CQL Studio OpenCode runner listening');
 });

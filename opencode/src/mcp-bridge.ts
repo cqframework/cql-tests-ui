@@ -14,10 +14,10 @@ interface ToolDefinition {
   parameters: Record<string, unknown>;
 }
 
-const baseUrl = process.env.CQL_STUDIO_SERVER_MCP_BRIDGE_URL?.replace(/\/+$/, '');
-const capability = process.env.CQL_STUDIO_SERVER_MCP_CAPABILITY;
-const workspace = process.env.CQL_STUDIO_SERVER_MCP_WORKSPACE;
-const activeFile = process.env.CQL_STUDIO_SERVER_MCP_ACTIVE_FILE;
+const baseUrl = process.env.CQL_STUDIO_OPENCODE_MCP_BRIDGE_URL?.replace(/\/+$/, '');
+const capability = process.env.CQL_STUDIO_OPENCODE_MCP_CAPABILITY;
+const workspace = process.env.CQL_STUDIO_OPENCODE_MCP_WORKSPACE;
+const activeFile = process.env.CQL_STUDIO_OPENCODE_MCP_ACTIVE_FILE;
 if (!baseUrl || !capability) {
   console.error('CQL Studio MCP bridge configuration is missing');
   process.exit(1);

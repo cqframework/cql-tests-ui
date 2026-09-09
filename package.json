@@ -7,20 +7,23 @@
   "packageManager": "npm",
   "workspaces": [
     "core",
+    "opencode",
     "server",
     "ui"
   ],
   "scripts": {
-    "build": "npm run build --workspace=@cql-studio/core && npm run build --workspace=@cql-studio/server && npm run build --workspace=@cql-studio/ui",
+    "build": "npm run build --workspace=@cql-studio/core && npm run build --workspace=@cql-studio/opencode && npm run build --workspace=@cql-studio/server && npm run build --workspace=@cql-studio/ui",
     "build:core": "npm run build --workspace=@cql-studio/core",
+    "build:opencode": "npm run build --workspace=@cql-studio/opencode",
     "build:server": "npm run build --workspace=@cql-studio/server",
     "build:ui": "npm run build --workspace=@cql-studio/ui",
     "start:ui": "npm run start --workspace=@cql-studio/ui",
     "start:server": "npm run dev --workspace=@cql-studio/server",
+    "start:opencode": "npm run dev --workspace=@cql-studio/opencode",
     "prisma:migrate": "npm run prisma:migrate --workspace=@cql-studio/server",
     "prisma:generate": "npm run prisma:generate --workspace=@cql-studio/server",
     "prisma:deploy": "npm run prisma:deploy --workspace=@cql-studio/server",
-    "docker:up": "docker compose -f docker/docker-compose.development.yml up -d --build --pull always --remove-orphans",
+    "docker:up": "docker compose -f docker/docker-compose.development.yml up -d --pull always --remove-orphans",
     "docker:down": "docker compose -f docker/docker-compose.development.yml down",
     "diagram": "command -v plantuml >/dev/null 2>&1 && plantuml -tpng doc/*.puml || echo 'plantuml not found on PATH; install PlantUML to render doc/*.puml'",
     "test": "npm run test --workspaces --if-present"

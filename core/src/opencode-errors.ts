@@ -1,6 +1,6 @@
 // Author: Preston Lee
 
-import type { OpenCodeErrorBody } from '@cql-studio/core';
+import type { OpenCodeErrorBody } from './opencode.js';
 
 export class OpenCodeError extends Error {
   constructor(

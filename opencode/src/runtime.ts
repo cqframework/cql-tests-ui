@@ -28,14 +28,54 @@ import type {
   OpenCodeSessionStateDto,
   OpenCodeValidationDto,
 } from '@cql-studio/core';
-import { normalizeOpenCodeError, OpenCodeError } from './errors.js';
+import { normalizeOpenCodeError, OpenCodeError, openCodeResumeTranscript } from '@cql-studio/core';
+import type { OpenCodeEnv } from './config/env.js';
+import { loadEnv } from './config/env.js';
 import { openCodeLogger } from './logger.js';
 import { OpenCodeWorkspaceManager, providerFor, providerIdFor, type MaterializedWorkspace } from './workspace.js';
-import { openCodeResumeTranscript } from './session-history.js';
-export { openCodeResumeTranscript } from './session-history.js';
+export { openCodeResumeTranscript } from '@cql-studio/core';
 
 type RuntimeEvent = Event | { type: string; properties: Record<string, unknown> };
 type EventListener = (event: OpenCodeEventEnvelope) => void;
+
+const SAFE_NATIVE_TOOLS = new Set(['read', 'glob', 'grep', 'edit', 'question', 'skill']);
+const DENIED_NATIVE_TOOLS = new Set([
+  'bash', 'write', 'task', 'webfetch', 'websearch', 'apply_patch', 'todowrite',
+]);
+const EXPECTED_MCP_TOOLS = Object.values(MCPToolNames)
+  .filter((name): name is string => typeof name === 'string');
+const REQUIRED_MCP_TOOL = MCPToolNames.CQL_VALIDATE;
+
+function matchesMcpToolId(id: string, name: string): boolean {
+  return id === name || id.endsWith(`_${name}`);
+}
+
+function configuredMcpToolIds(): string[] {
+  return EXPECTED_MCP_TOOLS.map(name => `cql-studio_${name}`);
+}
+
+export function openCodeMcpToolIds(toolIds: string[]): string[] {
+  return toolIds.filter(id => EXPECTED_MCP_TOOLS.some(name => matchesMcpToolId(id, name)));
+}
+
+export function safeOpenCodeToolMap(
+  toolIds: string[],
+  mcpToolIds: string[],
+  enabled: boolean
+): Record<string, boolean> {
+  const mcpTools = new Set(mcpToolIds);
+  return Object.fromEntries(toolIds.map(id => [
+    id,
+    enabled && (SAFE_NATIVE_TOOLS.has(id) || mcpTools.has(id)),
+  ]));
+}
+
+export function completedDeniedTool(event: Event): string | undefined {
+  if (event.type !== 'message.part.updated') return undefined;
+  const part = event.properties.part;
+  if (part.type !== 'tool' || part.state.status !== 'completed') return undefined;
+  return DENIED_NATIVE_TOOLS.has(part.tool) ? part.tool : undefined;
+}
 
 interface RuntimeSession {
   dto: OpenCodeSessionDto;
@@ -54,6 +94,8 @@ interface RuntimeSession {
   lastWorkspaceContent: string;
   attachments: Map<string, OpenCodeAttachmentDto>;
   seedMessages: unknown[];
+  toolIds: string[];
+  mcpToolIds: string[];
 }
 
 const CQL_COMMANDS = new Set([
@@ -112,22 +154,38 @@ export function isLightweightOpenCodeConversation(input: Pick<OpenCodePromptRequ
  * same session. Always send the inverse override so a tool-free greeting
  * cannot leave subsequent CQL work without file and MCP tools.
  */
-export function openCodeToolsForPrompt(input: Pick<OpenCodePromptRequest,
-  'message' | 'references' | 'attachments' | 'editorContext'>): Record<string, boolean> {
-  return { '*': !isLightweightOpenCodeConversation(input) };
+export function openCodeToolsForPrompt(
+  input: Pick<OpenCodePromptRequest, 'message' | 'references' | 'attachments' | 'editorContext'>,
+  toolIds: string[] = [],
+  mcpToolIds: string[] = []
+): Record<string, boolean> {
+  return safeOpenCodeToolMap(toolIds, mcpToolIds, !isLightweightOpenCodeConversation(input));
 }
 
 export class OpenCodeRuntime {
-  private readonly workspaces = new OpenCodeWorkspaceManager();
+  private readonly env: OpenCodeEnv;
+  private readonly workspaces: OpenCodeWorkspaceManager;
   private readonly sessions = new Map<string, RuntimeSession>();
   private server: Awaited<ReturnType<typeof createOpencode>> | null = null;
   private cleanupTimer: NodeJS.Timeout | null = null;
-  private readonly idleMs = Number.parseInt(process.env.CQL_STUDIO_SERVER_OPENCODE_SESSION_IDLE_MS || '3600000', 10);
-  private readonly cleanupMs = Number.parseInt(process.env.CQL_STUDIO_SERVER_OPENCODE_CLEANUP_INTERVAL_MS || '60000', 10);
+  private readonly idleMs: number;
+  private readonly cleanupMs: number;
   // Ollama can spend time loading a cold model, but a request must not leave
   // the browser spinning indefinitely when the provider never produces an event.
   // Deployments with slower hardware can override this value explicitly.
-  private readonly providerStallMs = Number.parseInt(process.env.CQL_STUDIO_SERVER_OPENCODE_PROVIDER_STALL_MS || '180000', 10);
+  private readonly providerStallMs: number;
+
+  constructor(env: OpenCodeEnv = loadEnv()) {
+    this.env = env;
+    this.workspaces = new OpenCodeWorkspaceManager(env.workspaceRoot, {
+      rewriteLocalhost: env.rewriteLocalhost,
+      mcpBridgeBin: env.mcpBridgeBin,
+      markitdownBin: env.markitdownBin,
+    });
+    this.idleMs = env.sessionIdleMs;
+    this.cleanupMs = env.cleanupIntervalMs;
+    this.providerStallMs = env.providerStallMs;
+  }
 
   private modelFor(session: RuntimeSession): { providerID: string; modelID: string; model: string } {
     const separator = session.dto.model.indexOf('/');
@@ -137,11 +195,62 @@ export class OpenCodeRuntime {
     return { providerID, modelID, model: session.dto.model };
   }
 
+  private async refreshToolPolicy(session: RuntimeSession): Promise<void> {
+    if (!session.toolBridge) {
+      session.toolIds = [];
+      session.mcpToolIds = [];
+      return;
+    }
+    const deadline = Date.now() + 15_000;
+    let detail = 'CQL Studio MCP did not become ready';
+    while (Date.now() < deadline) {
+      const status = await session.client.mcp.status();
+      const cqlStudio = status.data?.['cql-studio'];
+      if (cqlStudio?.status === 'connected') {
+        const tools = await session.client.tool.ids();
+        const nativeToolIds = tools.data ?? [];
+        session.mcpToolIds = configuredMcpToolIds();
+        session.toolIds = [...new Set([...nativeToolIds, ...session.mcpToolIds])];
+        return;
+      }
+      if (cqlStudio?.status === 'failed') {
+        detail = `CQL Studio MCP failed: ${cqlStudio.error}`;
+      } else if (cqlStudio) {
+        detail = `CQL Studio MCP status is ${cqlStudio.status}`;
+      }
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    throw new OpenCodeError('MCP_UNAVAILABLE', detail, 503, true);
+  }
+
+  private async requireMcpTools(session: RuntimeSession): Promise<void> {
+    const status = await session.client.mcp.status();
+    const cqlStudio = status.data?.['cql-studio'];
+    if (cqlStudio?.status !== 'connected') {
+      const detail = cqlStudio?.status === 'failed' ? `: ${cqlStudio.error}` : '';
+      throw new OpenCodeError(
+        'MCP_UNAVAILABLE',
+        `CQL Studio MCP tools are unavailable${detail}. Check the server tool-bridge URL and restart the session.`,
+        503,
+        true
+      );
+    }
+    if (!session.mcpToolIds.some(id => matchesMcpToolId(id, REQUIRED_MCP_TOOL))) {
+      await this.refreshToolPolicy(session);
+    }
+  }
+
   async initialize(): Promise<void> {
     await this.workspaces.initialize();
+    if (!this.workspaces.markitdownAvailable()) {
+      openCodeLogger.warn(
+        { operation: 'runner.markitdown.unavailable' },
+        'MarkItDown is unavailable; PDF and DOCX attachments will be rejected until it is installed'
+      );
+    }
     this.server = await createOpencode({
       hostname: '127.0.0.1',
-      port: Number.parseInt(process.env.CQL_STUDIO_SERVER_OPENCODE_INTERNAL_PORT || '4096', 10),
+      port: this.env.internalPort,
       timeout: 20_000,
       config: { autoupdate: false, share: 'disabled', logLevel: 'WARN' },
     });
@@ -206,7 +315,10 @@ export class OpenCodeRuntime {
         attachments: new Map(),
         toolBridge: input.toolBridge,
         seedMessages: input.resume?.messages ?? [],
+        toolIds: [],
+        mcpToolIds: [],
       };
+      await this.refreshToolPolicy(runtime);
       if (input.resume?.messages.length) {
         await client.session.promptAsync({
           sessionID: openCodeSession.id,
@@ -244,6 +356,10 @@ export class OpenCodeRuntime {
       throw new OpenCodeError('INVALID_EDITOR_CONTEXT', 'Editor context does not match the active CQL file', 400, false);
     }
     const lightweightConversation = isLightweightOpenCodeConversation(input);
+    if (!lightweightConversation) {
+      await this.requireMcpTools(session);
+      await this.workspaces.assertWorkspaceIntegrity(session.workspace);
+    }
     const ideDiagnostics = lightweightConversation ? undefined : input.ideDiagnostics;
     if (ideDiagnostics && (
       ideDiagnostics.libraryId !== session.dto.activeLibraryId
@@ -338,7 +454,7 @@ export class OpenCodeRuntime {
         agent: input.agent === 'plan' ? 'plan' : 'build',
         model: { providerID: selectedModel.providerID, modelID: selectedModel.modelID },
         variant: input.reasoning ? 'thinking' : 'fast',
-        tools: openCodeToolsForPrompt(input),
+        tools: openCodeToolsForPrompt(input, session.toolIds, session.mcpToolIds),
         parts,
       });
       openCodeLogger.info({
@@ -401,6 +517,10 @@ export class OpenCodeRuntime {
     session.dto.reasoningEnabled = reasoning;
     this.armStallTimer(session);
     try {
+      if (normalized !== 'compact') {
+        await this.requireMcpTools(session);
+        await this.workspaces.assertWorkspaceIntegrity(session.workspace);
+      }
       if (normalized === 'compact') {
         const selectedModel = this.modelFor(session);
         this.runDetachedCommand(session, session.client.session.summarize({
@@ -631,10 +751,33 @@ export class OpenCodeRuntime {
         const properties = typed.properties as Record<string, any>;
         const eventSessionId = properties['sessionID'] ?? properties['info']?.sessionID ?? properties['part']?.sessionID;
         if (eventSessionId && eventSessionId !== session.dto.openCodeSessionId) continue;
-        if ((typed.type === 'file.edited' || typed.type === 'file.watcher.updated') &&
-            typeof properties['file'] === 'string' &&
-            this.workspaces.isActiveFile(session.workspace, properties['file'])) {
-          await this.emitWorkspaceChange(session);
+        const deniedTool = completedDeniedTool(typed);
+        if (deniedTool) {
+          session.dto.status = 'error';
+          this.clearStallTimer(session);
+          openCodeLogger.error(
+            { operation: 'tool.policy.violation', sessionId: session.dto.id, tool: deniedTool },
+            'OpenCode completed a disabled native tool'
+          );
+          await session.client.session.abort({ sessionID: session.dto.openCodeSessionId }).catch(() => undefined);
+          this.emit(session, {
+            type: 'runner.error',
+            properties: {
+              code: 'TOOL_POLICY_VIOLATION',
+              message: `OpenCode attempted a disabled ${deniedTool} tool. The session was stopped.`,
+              retryable: false,
+            },
+          });
+          continue;
+        }
+        if (
+          (typed.type === 'file.edited' || typed.type === 'file.watcher.updated') &&
+          typeof properties['file'] === 'string'
+        ) {
+          await this.workspaces.assertWorkspaceIntegrity(session.workspace);
+          if (this.workspaces.isActiveFile(session.workspace, properties['file'])) {
+            await this.emitWorkspaceChange(session);
+          }
         }
         if (typed.type === 'session.status') {
           session.dto.status = properties['status']?.type === 'busy' ? 'busy' : 'idle';
@@ -713,7 +856,7 @@ export class OpenCodeRuntime {
         type: 'runner.error',
         properties: {
           code: 'OLLAMA_STALLED',
-          message: `The AI provider produced no progress for ${Math.round(this.providerStallMs / 1000)} seconds. The request was stopped; retry after the model finishes loading or increase CQL_STUDIO_SERVER_OPENCODE_PROVIDER_STALL_MS.`,
+          message: `The AI provider produced no progress for ${Math.round(this.providerStallMs / 1000)} seconds. The request was stopped; retry after the model finishes loading or increase CQL_STUDIO_OPENCODE_PROVIDER_STALL_MS.`,
           retryable: true,
         },
       });

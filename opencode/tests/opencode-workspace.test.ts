@@ -1,18 +1,21 @@
 // Author: Preston Lee
 
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
+  completedDeniedTool,
   isLightweightOpenCodeConversation,
+  openCodeMcpToolIds,
   openCodeToolsForPrompt,
   isOpenCodeSessionProgress,
   openCodeAttachmentMimeType,
-} from '../src/opencode/runtime.js';
-import { openCodeResumeMessages, openCodeResumeTranscript } from '../src/opencode/session-history.js';
-import { mcpBridgeExecutable, OpenCodeWorkspaceManager } from '../src/opencode/workspace.js';
+  safeOpenCodeToolMap,
+} from '../src/runtime.js';
+import { openCodeResumeMessages, openCodeResumeTranscript } from '@cql-studio/core';
+import { mcpBridgeExecutable, OpenCodeWorkspaceManager } from '../src/workspace.js';
 
 const activeCql = `library Example version '1.0.0'\nusing FHIR version '4.0.1'\ninclude Shared version '1.0.0'\ndefine Answer: 42\n`;
 
@@ -48,9 +51,53 @@ test('uses the lightweight tool-free path only for context-free conversation', (
   }), false);
 });
 
-test('explicitly restores tools after a lightweight conversation turn', () => {
-  assert.deepEqual(openCodeToolsForPrompt({ message: 'Hi' }), { '*': false });
-  assert.deepEqual(openCodeToolsForPrompt({ message: 'Read the active CQL file' }), { '*': true });
+test('enables only safe native and discovered MCP tools for substantive prompts', () => {
+  const toolIds = [
+    'bash', 'read', 'glob', 'grep', 'edit', 'write', 'task', 'webfetch', 'apply_patch',
+    'cql-studio_cql_validate', 'cql-studio_fhir_read',
+  ];
+  const mcpToolIds = openCodeMcpToolIds(toolIds);
+  assert.deepEqual(mcpToolIds, ['cql-studio_cql_validate', 'cql-studio_fhir_read']);
+  assert.deepEqual(
+    openCodeToolsForPrompt({ message: 'Hi' }, toolIds, mcpToolIds),
+    Object.fromEntries(toolIds.map(id => [id, false]))
+  );
+  assert.deepEqual(
+    safeOpenCodeToolMap(toolIds, mcpToolIds, true),
+    {
+      bash: false,
+      read: true,
+      glob: true,
+      grep: true,
+      edit: true,
+      write: false,
+      task: false,
+      webfetch: false,
+      apply_patch: false,
+      'cql-studio_cql_validate': true,
+      'cql-studio_fhir_read': true,
+    }
+  );
+});
+
+test('detects a completed disabled tool event', () => {
+  const denied = {
+    type: 'message.part.updated',
+    properties: {
+      sessionID: 'session',
+      time: Date.now(),
+      part: {
+        id: 'part',
+        sessionID: 'session',
+        messageID: 'message',
+        type: 'tool',
+        callID: 'call',
+        tool: 'bash',
+        state: { status: 'completed', input: {}, output: '', title: '', metadata: {}, time: { start: 1, end: 2 } },
+      },
+    },
+  } as Parameters<typeof completedDeniedTool>[0];
+  assert.equal(completedDeniedTool(denied), 'bash');
 });
 
 test('builds resume context from chat text without internal or tool payloads', () => {
@@ -68,10 +115,10 @@ test('builds resume context from chat text without internal or tool payloads', (
   assert.doesNotMatch(sanitized, /hidden selection|hidden diagnostics|secret|state/);
 });
 
-test('resolves the MCP bridge beside the compiled monorepo server module', () => {
+test('resolves the MCP bridge beside the compiled OpenCode module', () => {
   assert.equal(
-    mcpBridgeExecutable('file:///app/server/dist/opencode/workspace.js', ''),
-    '/app/server/dist/opencode/mcp-bridge.js'
+    mcpBridgeExecutable('file:///app/opencode/dist/workspace.js', ''),
+    '/app/opencode/dist/mcp-bridge.js'
   );
 });
 
@@ -96,7 +143,7 @@ test('materializes a writable draft, read-only dependencies, MCP config, and a r
       cqlContent: `library Shared version '1.0.0'\ndefine SharedValue: true\n`,
     }],
     toolBridge: {
-      baseUrl: 'http://host.docker.internal:3003/api/opencode/tool-bridge',
+      baseUrl: 'http://127.0.0.1:3003/api/opencode/tool-bridge',
       capability: 'opaque-test-capability',
     },
   });
@@ -105,6 +152,11 @@ test('materializes a writable draft, read-only dependencies, MCP config, and a r
     assert.equal(workspace.activeFile, 'libraries/Example-With-Spaces.cql');
     assert.equal(await readFile(path.join(workspace.directory, workspace.activeFile), 'utf8'), activeCql);
     assert.equal((await stat(path.join(workspace.directory, workspace.activeFile))).mode & 0o777, 0o600);
+    assert.equal((await stat(path.join(workspace.directory, 'libraries'))).mode & 0o777, 0o500);
+    await assert.rejects(
+      writeFile(path.join(workspace.directory, 'libraries/Other.cql'), activeCql, 'utf8'),
+      (error: unknown) => (error as NodeJS.ErrnoException).code === 'EACCES'
+    );
     assert.equal((await stat(path.join(workspace.directory, 'dependencies/Shared.cql'))).mode & 0o777, 0o400);
     await assert.rejects(
       writeFile(path.join(workspace.directory, 'dependencies/Shared.cql'), 'changed', 'utf8')
@@ -119,7 +171,7 @@ test('materializes a writable draft, read-only dependencies, MCP config, and a r
     assert.equal(config.model, 'ollama/qwen3-coder:latest');
     assert.equal(config.provider.ollama.npm, '@ai-sdk/openai-compatible');
     assert.equal(config.provider.ollama.name, 'Ollama (local)');
-    assert.equal(config.provider.ollama.options.baseURL, 'http://host.docker.internal:11434/v1');
+    assert.equal(config.provider.ollama.options.baseURL, 'http://localhost:11434/v1');
     assert.equal(config.provider.ollama.models['qwen3-coder:latest'].options.reasoningEffort, 'none');
     assert.equal('tool_call' in config.provider.ollama.models['qwen3-coder:latest'], false);
     assert.deepEqual(config.permission, {
@@ -130,9 +182,9 @@ test('materializes a writable draft, read-only dependencies, MCP config, and a r
       doom_loop: 'ask',
       skill: { '*': 'allow' },
     });
-    assert.equal(config.mcp['cql-studio'].environment.CQL_STUDIO_SERVER_MCP_CAPABILITY, 'opaque-test-capability');
-    assert.equal(config.mcp['cql-studio'].environment.CQL_STUDIO_SERVER_MCP_ACTIVE_FILE, workspace.activeFile);
-    assert.match(config.mcp['cql-studio'].command[1], /\/opencode\/mcp-bridge\.js$/);
+    assert.equal(config.mcp['cql-studio'].environment.CQL_STUDIO_OPENCODE_MCP_CAPABILITY, 'opaque-test-capability');
+    assert.equal(config.mcp['cql-studio'].environment.CQL_STUDIO_OPENCODE_MCP_ACTIVE_FILE, workspace.activeFile);
+    assert.match(config.mcp['cql-studio'].command[1], /\/opencode\/(?:src|dist)\/mcp-bridge\.js$/);
     assert.equal(config.provider.ollama.models['qwen3-coder:latest'].variants.fast.reasoningEffort, 'none');
     assert.equal(config.provider.ollama.models['qwen3-coder:latest'].variants.thinking.reasoningEffort, 'medium');
     const commandExpectations: Record<string, RegExp> = {
@@ -191,6 +243,39 @@ test('materializes a writable draft, read-only dependencies, MCP config, and a r
   }
 });
 
+test('detects unmanaged library files and removes locked workspaces', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'cql-studio-opencode-integrity-'));
+  const manager = new OpenCodeWorkspaceManager(root);
+  await manager.initialize();
+  const workspace = await manager.create({
+    ollamaBaseUrl: 'http://localhost:11434',
+    ollamaModel: 'qwen3-coder:latest',
+    activeLibrary: { id: 'Example', name: 'Example', cqlContent: activeCql },
+    dependencies: [],
+  });
+  await chmod(path.join(workspace.directory, 'libraries'), 0o700);
+  await writeFile(path.join(workspace.directory, 'libraries/Unmanaged.cql'), activeCql, 'utf8');
+  await chmod(path.join(workspace.directory, 'libraries'), 0o500);
+  await assert.rejects(manager.diff(workspace), /WORKSPACE_INTEGRITY_VIOLATION|unmanaged workspace path/);
+  await manager.remove(workspace);
+  await assert.rejects(stat(workspace.directory));
+});
+
+test('removes orphaned workspaces with locked library directories', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'cql-studio-opencode-orphan-'));
+  const orphan = path.join(root, '123e4567-e89b-42d3-a456-426614174000');
+  await mkdir(path.join(orphan, 'libraries'), { recursive: true, mode: 0o700 });
+  await mkdir(path.join(orphan, 'dependencies'), { recursive: true, mode: 0o700 });
+  await writeFile(path.join(orphan, 'libraries/Example.cql'), activeCql, { mode: 0o600 });
+  await chmod(path.join(orphan, 'libraries'), 0o500);
+  await chmod(path.join(orphan, 'dependencies'), 0o500);
+
+  const manager = new OpenCodeWorkspaceManager(root);
+  await manager.initialize();
+  await assert.rejects(stat(orphan));
+  await rm(root, { recursive: true, force: true });
+});
+
 test('writes OpenAI-compatible provider settings without changing the workspace boundary', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'cql-studio-opencode-provider-'));
   const manager = new OpenCodeWorkspaceManager(root);
@@ -239,6 +324,32 @@ test('updates a provider model while restoring the protected config mode', async
     const config = JSON.parse(await readFile(path.join(workspace.directory, 'opencode.json'), 'utf8'));
     assert.equal(config.provider.openai.models['gpt-4.1-mini'].name, 'gpt-4.1-mini');
     assert.equal((await stat(path.join(workspace.directory, 'opencode.json'))).mode & 0o777, 0o400);
+  } finally {
+    await manager.remove(workspace);
+  }
+});
+
+test('rejects PDF conversion with install guidance when MarkItDown is unavailable', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'cql-studio-opencode-no-markitdown-'));
+  const manager = new OpenCodeWorkspaceManager(root, {
+    markitdownBin: '/definitely/missing/markitdown',
+  });
+  await manager.initialize();
+  const workspace = await manager.create({
+    ollamaBaseUrl: 'http://localhost:11434',
+    ollamaModel: 'qwen3-coder:latest',
+    activeLibrary: { id: 'Example', name: 'Example', cqlContent: activeCql },
+    dependencies: [],
+  });
+  try {
+    await assert.rejects(
+      manager.addAttachment(workspace, {
+        name: 'guide.pdf',
+        mimeType: 'application/pdf',
+        data: Buffer.from('%PDF-test').toString('base64'),
+      }),
+      /pip install 'markitdown\[pdf,docx\]==0\.1\.7'/
+    );
   } finally {
     await manager.remove(workspace);
   }

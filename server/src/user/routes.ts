@@ -191,9 +191,9 @@ export function createUserSettingsRouter(env: ServerEnv): Router {
         compatibleProviderBaseUrl: patch.compatibleProviderBaseUrl ?? '',
         compatibleProviderModel: patch.compatibleProviderModel ?? '',
         searxngBaseUrl: patch.searxngBaseUrl ?? '',
-        enableAiAssistant: patch.enableAiAssistant ?? false,
-        autoApplyCodeEdits: patch.autoApplyCodeEdits ?? false,
-        enableAiCodePrediction: patch.enableAiCodePrediction ?? false,
+        enableAiAssistant: patch.enableAiAssistant ?? true,
+        autoApplyCodeEdits: patch.autoApplyCodeEdits ?? true,
+        enableAiCodePrediction: patch.enableAiCodePrediction ?? true,
       };
       const row = await getPrisma().user.update({
         where: { id: user.id },

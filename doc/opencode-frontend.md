@@ -2,7 +2,7 @@
 
 ## Current boundary
 
-The Angular UI contains the OpenCode IDE experience. The monorepo `server/` package owns the authenticated gateway and delegates isolated execution to the private `opencode-runner` service defined in `docker/docker-compose.development.yml`.
+The Angular UI contains the OpenCode IDE experience. The monorepo `server/` package owns the authenticated gateway and delegates isolated execution to the private `@cql-studio/opencode` service. In local development, both services run as separate host processes; Docker Compose provides backing infrastructure only.
 
 The frontend always uses same-origin CQL Studio Server routes under `/api/opencode`. Provider URLs and credentials are request data for CQL Studio Server; the browser never connects OpenCode directly to a provider.
 
@@ -23,7 +23,7 @@ The active IDE **Problems** panel is sent as bounded, structured prompt context 
 
 Every session includes the bundled FHIR R4 `FHIRHelpers` 4.0.1 source at `dependencies/FHIRHelpers.cql`, even when the active Library has not included it yet. The dependency is read-only. Repair instructions require OpenCode to inspect that file before choosing helper functions and to preserve the Library's existing alias (or add the matching include when necessary).
 
-Attachments remain in the OpenCode session workspace until the session ends. Text files are stored as context directly. Formats such as PDF and DOCX are converted to Markdown by the runner-side MarkItDown integration. `/compact` may retain summarized context while allowing the runner to purge original attachment files.
+Attachments remain in the OpenCode session workspace until the session ends. Text files are stored as context directly. Formats such as PDF and DOCX are converted to Markdown when the optional MarkItDown executable is available on the host. Its absence does not prevent ordinary CQL chat or MCP use; a PDF/DOCX upload instead returns actionable installation guidance. `/compact` may retain summarized context while allowing the runner to purge original attachment files.
 
 The gateway snapshots live session state to PostgreSQL and lists only records owned by the authenticated user. The Workspace **Sessions** tab shows that user's OpenCode conversations associated with the selected Workspace in a read-only view. A live runner session can continue accepting prompts. After a server/runner restart or idle cleanup, its saved state remains available as a read-only archived session.
 
@@ -64,7 +64,7 @@ Environment bindings stored in `sessionStorage` do not include endpoint username
 | --- | --- | --- |
 | `GET` | `/api/opencode/health` | Gateway and runner availability |
 | `POST` | `/api/opencode/providers/models` | Provider model discovery |
-| `GET/POST` | `/api/opencode/sessions` | List or create owned sessions |
+| `GET/POST/DELETE` | `/api/opencode/sessions` | List, create, or permanently delete all owned sessions |
 | `GET` | `/api/opencode/sessions?workspaceId=:id` | List the authenticated user's sessions for an accessible Workspace |
 | `GET` | `/api/opencode/sessions/:id/state` | Read the current or persisted session state |
 | `POST` | `/api/opencode/sessions/:id/resume` | Recreate an owned archived session using the active Library snapshot and current credentials |

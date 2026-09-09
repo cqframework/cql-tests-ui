@@ -2,11 +2,12 @@
 
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rm, writeFile, chmod } from 'node:fs/promises';
+import { accessSync, constants } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import path from 'node:path';
-import { MCPToolNames } from '@cql-studio/core';
+import { MCPToolNames, OpenCodeError } from '@cql-studio/core';
 import type {
   CreateOpenCodeSessionRequest,
   OpenCodeAttachmentDto,
@@ -19,7 +20,7 @@ import type {
 const execFileAsync = promisify(execFile);
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const MAX_CONVERTED_BYTES = 4 * 1024 * 1024;
-const MARKITDOWN_BIN = process.env.CQL_STUDIO_SERVER_MARKITDOWN_BIN || '/opt/markitdown/bin/markitdown';
+const MARKITDOWN_BIN = 'markitdown';
 const TEXT_EXTENSIONS = new Set([
   '.txt', '.text', '.md', '.markdown', '.csv', '.tsv', '.json', '.jsonl', '.ndjson', '.xml',
   '.yaml', '.yml', '.html', '.htm', '.css', '.scss', '.js', '.jsx', '.ts', '.tsx', '.py',
@@ -37,9 +38,41 @@ const BINARY_EXTENSIONS = new Set([
 
 export function mcpBridgeExecutable(
   moduleUrl = import.meta.url,
-  configured = process.env.CQL_STUDIO_SERVER_MCP_BRIDGE_BIN
+  configured = process.env.CQL_STUDIO_OPENCODE_MCP_BRIDGE_BIN
 ): string {
   return configured?.trim() || fileURLToPath(new URL('./mcp-bridge.js', moduleUrl));
+}
+
+export function resolveExecutableOnPath(
+  bin: string,
+  pathEnv: string = process.env.PATH ?? ''
+): string | undefined {
+  const trimmed = bin.trim();
+  if (!trimmed) return undefined;
+  if (path.isAbsolute(trimmed)) {
+    try {
+      accessSync(trimmed, constants.X_OK);
+      return trimmed;
+    } catch {
+      return undefined;
+    }
+  }
+  for (const directory of pathEnv.split(path.delimiter)) {
+    if (!directory) continue;
+    try {
+      accessSync(path.join(directory, trimmed), constants.X_OK);
+      return path.join(directory, trimmed);
+    } catch {
+      // Continue searching PATH.
+    }
+  }
+  return undefined;
+}
+
+export interface OpenCodeWorkspaceOptions {
+  rewriteLocalhost?: boolean;
+  mcpBridgeBin?: string;
+  markitdownBin?: string;
 }
 
 export interface MaterializedWorkspace {
@@ -86,10 +119,10 @@ function countChangedLines(before: string, after: string): { additions: number; 
   };
 }
 
-function normalizeOllamaBaseUrl(raw: string): string {
+function normalizeOllamaBaseUrl(raw: string, rewriteLocalhost: boolean): string {
   const url = new URL(raw);
   if (
-    process.env.CQL_STUDIO_SERVER_OPENCODE_RUNNER_REWRITE_LOCALHOST !== 'false' &&
+    rewriteLocalhost &&
     (url.hostname === 'localhost' || url.hostname === '127.0.0.1')
   ) {
     url.hostname = 'host.docker.internal';
@@ -123,9 +156,26 @@ export function providerIdFor(provider: OpenCodeProviderConfig): string {
 
 export class OpenCodeWorkspaceManager {
   private readonly root: string;
+  private readonly rewriteLocalhost: boolean;
+  private readonly mcpBridgeBin?: string;
+  private readonly markitdownBin?: string;
 
-  constructor(root = process.env.CQL_STUDIO_SERVER_OPENCODE_WORKSPACE_ROOT || '/workspaces') {
+  constructor(
+    root = process.env.CQL_STUDIO_OPENCODE_WORKSPACE_ROOT || './workspaces',
+    options: OpenCodeWorkspaceOptions = {}
+  ) {
     this.root = path.resolve(root);
+    this.rewriteLocalhost = options.rewriteLocalhost
+      ?? process.env.CQL_STUDIO_OPENCODE_RUNNER_REWRITE_LOCALHOST === 'true';
+    this.mcpBridgeBin = options.mcpBridgeBin?.trim() || undefined;
+    const configuredMarkitdown = options.markitdownBin?.trim()
+      || process.env.CQL_STUDIO_OPENCODE_MARKITDOWN_BIN?.trim()
+      || MARKITDOWN_BIN;
+    this.markitdownBin = resolveExecutableOnPath(configuredMarkitdown);
+  }
+
+  markitdownAvailable(): boolean {
+    return Boolean(this.markitdownBin);
   }
 
   async initialize(): Promise<void> {
@@ -136,6 +186,7 @@ export class OpenCodeWorkspaceManager {
       if (!entry.isDirectory() || !/^[0-9a-f-]{36}$/i.test(entry.name)) continue;
       const orphan = path.join(this.root, entry.name);
       await chmod(path.join(orphan, 'dependencies'), 0o700).catch(() => undefined);
+      await chmod(path.join(orphan, 'libraries'), 0o700).catch(() => undefined);
       await rm(orphan, { recursive: true, force: true });
     }
   }
@@ -179,6 +230,9 @@ export class OpenCodeWorkspaceManager {
       encoding: 'utf8',
       mode: 0o600,
     });
+    // The active file remains writable, but locking its parent prevents OpenCode
+    // from creating, renaming, or deleting files outside the single-Library flow.
+    await chmod(librariesDirectory, 0o500);
 
     const manifest: OpenCodeWorkspaceManifest = {
       schemaVersion: 1,
@@ -221,9 +275,10 @@ export class OpenCodeWorkspaceManager {
     const agentInstructions = [
       '# CQL Studio OpenCode workspace',
       '',
-      `The active writable CQL library is \`${activeFile}\`.`,
+      `The only writable CQL library is \`${activeFile}\`. Edit that exact file in place.`,
       'Files in `dependencies/` are reference-only and must not be edited.',
-      'Only edit files under `libraries/`.',
+      'Never create, rename, or delete a file anywhere in this workspace.',
+      'If asked to create a different CQL Library, explain that this session can edit only the currently open Library and do not create it.',
       'Preserve the CQL library name and version unless the user explicitly asks to change them.',
       'When repairing CQL, treat the current CQL Studio Problems context as the initial diagnostic set and then run cql_validate after editing.',
       'Before adding or changing a FHIR conversion helper call, read `dependencies/FHIRHelpers.cql` and use only a function declared there. Preserve the active library\'s existing FHIRHelpers alias, or add the 4.0.1 include when needed.',
@@ -321,7 +376,7 @@ export class OpenCodeWorkspaceManager {
     const providerConfigs = Object.fromEntries(configuredProviders.map(candidate => {
       const candidateId = providerIdFor(candidate);
       const candidateBaseUrl = candidate.type === 'ollama'
-        ? normalizeOllamaBaseUrl(candidate.baseUrl || input.ollamaBaseUrl)
+        ? normalizeOllamaBaseUrl(candidate.baseUrl || input.ollamaBaseUrl, this.rewriteLocalhost)
         : normalizeProviderBaseUrl(candidate.baseUrl || 'https://api.openai.com/v1');
       const candidateOptions: Record<string, unknown> = { baseURL: candidateBaseUrl };
       // The documented provider configuration path for API-key authentication.
@@ -368,12 +423,12 @@ export class OpenCodeWorkspaceManager {
         mcp: {
           'cql-studio': {
             type: 'local',
-            command: [process.execPath, mcpBridgeExecutable()],
+            command: [process.execPath, mcpBridgeExecutable(import.meta.url, this.mcpBridgeBin)],
             environment: {
-              CQL_STUDIO_SERVER_MCP_BRIDGE_URL: input.toolBridge.baseUrl,
-              CQL_STUDIO_SERVER_MCP_CAPABILITY: input.toolBridge.capability,
-              CQL_STUDIO_SERVER_MCP_WORKSPACE: directory,
-              CQL_STUDIO_SERVER_MCP_ACTIVE_FILE: activeFile,
+              CQL_STUDIO_OPENCODE_MCP_BRIDGE_URL: input.toolBridge.baseUrl,
+              CQL_STUDIO_OPENCODE_MCP_CAPABILITY: input.toolBridge.capability,
+              CQL_STUDIO_OPENCODE_MCP_WORKSPACE: directory,
+              CQL_STUDIO_OPENCODE_MCP_ACTIVE_FILE: activeFile,
             },
             enabled: true,
             timeout: 15_000,
@@ -399,7 +454,28 @@ export class OpenCodeWorkspaceManager {
     };
   }
 
+  async assertWorkspaceIntegrity(workspace: MaterializedWorkspace): Promise<void> {
+    const librariesDirectory = path.join(workspace.directory, 'libraries');
+    const expected = new Set(
+      Object.keys(workspace.manifest.files)
+        .filter(file => file.startsWith('libraries/'))
+        .map(file => path.basename(file))
+    );
+    const unmanaged = (await readdir(librariesDirectory, { withFileTypes: true }))
+      .filter(entry => !entry.isFile() || !expected.has(entry.name))
+      .map(entry => `libraries/${entry.name}`);
+    if (unmanaged.length) {
+      throw new OpenCodeError(
+        'WORKSPACE_INTEGRITY_VIOLATION',
+        `OpenCode created an unmanaged workspace path: ${unmanaged.join(', ')}`,
+        409,
+        false
+      );
+    }
+  }
+
   async diff(workspace: MaterializedWorkspace): Promise<OpenCodeFileDiffDto[]> {
+    await this.assertWorkspaceIntegrity(workspace);
     const diffs: OpenCodeFileDiffDto[] = [];
     for (const [file, before] of workspace.baselineByFile) {
       const after = await readFile(path.join(workspace.directory, file), 'utf8');
@@ -417,6 +493,7 @@ export class OpenCodeWorkspaceManager {
   }
 
   async syncActiveFile(workspace: MaterializedWorkspace, content: string): Promise<void> {
+    await this.assertWorkspaceIntegrity(workspace);
     const absolute = this.resolveReference(workspace, workspace.activeFile);
     await writeFile(absolute, content, { encoding: 'utf8', mode: 0o600 });
     workspace.baselineByFile.set(workspace.activeFile, content);
@@ -461,8 +538,13 @@ export class OpenCodeWorkspaceManager {
     try {
       let content: string;
       if (converted) {
+        if (!this.markitdownBin) {
+          throw new Error(
+            "PDF/DOCX conversion requires MarkItDown. Install it with: python3 -m pip install 'markitdown[pdf,docx]==0.1.7'"
+          );
+        }
         try {
-          const result = await execFileAsync(MARKITDOWN_BIN, [temporary], {
+          const result = await execFileAsync(this.markitdownBin, [temporary], {
             encoding: 'utf8',
             timeout: 30_000,
             maxBuffer: MAX_CONVERTED_BYTES,
@@ -583,8 +665,10 @@ export class OpenCodeWorkspaceManager {
     if (path.dirname(resolved) !== this.root) {
       throw new Error('Refusing to remove a workspace outside the configured root');
     }
-    // Dependencies are intentionally locked while a session is active; unlock only for cleanup.
+    // Workspace directories are intentionally locked while a session is active;
+    // unlock them only for runner-owned cleanup.
     await chmod(path.join(resolved, 'dependencies'), 0o700).catch(() => undefined);
+    await chmod(path.join(resolved, 'libraries'), 0o700).catch(() => undefined);
     await rm(resolved, { recursive: true, force: true });
   }
 }

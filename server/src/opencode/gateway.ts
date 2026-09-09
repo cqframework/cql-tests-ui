@@ -13,13 +13,12 @@ import type {
   OpenCodeSessionStateDto,
   OpenCodeWorkspaceOrigin,
 } from '@cql-studio/core';
-import { OpenCodeError } from './errors.js';
+import { OpenCodeError, openCodeResumeMessages } from '@cql-studio/core';
 import { openCodeLogger } from './logger.js';
 import { OpenCodeToolExecutor, type OpenCodeToolContext } from './tools.js';
 import { getPrisma } from '../db/prisma.js';
 import { resolveEffectiveWorkspaceRole } from '../workspace/access.js';
 import type { Prisma } from '@prisma/client';
-import { openCodeResumeMessages } from './session-history.js';
 
 interface GatewaySession extends OpenCodeToolContext {
   id: string;
@@ -785,7 +784,31 @@ export function createOpenCodeGateway(env: ServerEnv): Router {
     res.status(204).send();
   }));
 
-  // Permanent deletion remains available to an explicit future history-management UI.
+  // Permanent deletion for explicit history management (settings + future per-session UI).
+  router.delete('/sessions', asyncHandler(async (req, res) => {
+    const owner = ownerFor(req);
+    const liveOwned = [...sessions.values()].filter(session => session.owner === owner);
+    for (const session of liveOwned) {
+      try {
+        await runnerFetch(`/sessions/${encodeURIComponent(session.id)}`, { method: 'DELETE' });
+      } catch (error) {
+        openCodeLogger.warn(
+          { operation: 'session.delete_all.runner', sessionId: session.id, owner, err: error },
+          'Failed to remove a live OpenCode runner session during account purge'
+        );
+      }
+      forget(session.id);
+    }
+    const deleted = persistentSessions
+      ? await getPrisma().openCodeSession.deleteMany({ where: { userId: owner } })
+      : { count: liveOwned.length };
+    openCodeLogger.info(
+      { operation: 'session.delete_all', owner, deleted: deleted.count },
+      'Deleted all OpenCode sessions for user'
+    );
+    res.json({ deleted: deleted.count });
+  }));
+
   router.delete('/sessions/:id', asyncHandler(async (req, res) => {
     const owner = ownerFor(req);
     const live = sessions.get(req.params.id);

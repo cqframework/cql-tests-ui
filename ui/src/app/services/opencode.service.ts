@@ -233,6 +233,15 @@ export class OpenCodeService {
     await this.request(`/sessions/${encodeURIComponent(sessionId)}/archive`, { method: 'POST' });
   }
 
+  async deleteAllSessions(): Promise<{ deleted: number }> {
+    const result = await this.request<{ deleted: number }>('/sessions', { method: 'DELETE' });
+    const deleted = typeof result?.deleted === 'number' && Number.isFinite(result.deleted)
+      ? Math.max(0, Math.trunc(result.deleted))
+      : 0;
+    this.environmentBinding.retain([]);
+    return { deleted };
+  }
+
   events(
     sessionId: string,
     onEvent: (event: OpenCodeEventEnvelope) => void,

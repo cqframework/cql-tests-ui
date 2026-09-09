@@ -8,7 +8,8 @@
 #   or from monorepo root:
 #   npm run docker:up
 #
-# Networking: run cql-studio-server on the host (npm run start:server), not in this compose file.
+# Networking: run cql-studio-server and OpenCode on the host
+# (npm run start:server and npm run start:opencode), not in this compose file.
 # Authentik is published on host port 9000; host processes use http://localhost:9000.
 # Inside another container, localhost:9000 is that container — use host.docker.internal:9000
 # or join this compose network and use http://authentik-server:9000 for server-to-IdP calls.
@@ -27,25 +28,6 @@
 #   CQL_STUDIO_DEFAULT_TEST_RESULTS_INDEX_URL=http://localhost:8092/index.json
 
 services:
-  opencode-runner:
-    build:
-      context: ..
-      dockerfile: server/Dockerfile.opencode
-    container_name: cql-studio-opencode-runner
-    environment:
-      CQL_STUDIO_SERVER_NODE_ENV: development
-      CQL_STUDIO_SERVER_OPENCODE_RUNNER_TOKEN: cql-studio-opencode-development-only
-      CQL_STUDIO_SERVER_OPENCODE_RUNNER_REWRITE_LOCALHOST: "true"
-      CQL_STUDIO_SERVER_OPENCODE_SESSION_IDLE_MS: "3600000"
-      CQL_STUDIO_SERVER_OPENCODE_CLEANUP_INTERVAL_MS: "60000"
-    ports:
-      - "127.0.0.1:4097:4097"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - opencode-workspaces:/workspaces
-    restart: unless-stopped
-
   hapi-r4-data:
     image: hapiproject/hapi:v8.10.0-3
     container_name: cql-studio-hapi-r4-data
@@ -188,7 +170,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  opencode-workspaces:
   server-database:
   authentik-database:
   authentik-data:
