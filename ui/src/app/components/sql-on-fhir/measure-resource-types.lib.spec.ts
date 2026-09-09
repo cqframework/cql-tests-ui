@@ -54,6 +54,30 @@ describe('measure-resource-types.lib', () => {
               name: 'Test',
               expression: {
                 type: 'Retrieve',
+                dataType: '{http://hl7.org/fhir}Claim',
+              },
+            },
+          ],
+        },
+      },
+    };
+    const result = resolveExecutionResourceTypes({
+      elmJson: JSON.stringify(elm),
+      library: null,
+    });
+    expect(result.unsupportedTypes).toEqual(['Claim']);
+    expect(result.derivedTypes).toEqual(['Patient']);
+  });
+
+  test('MedicationRequest is flattenable', () => {
+    const elm = {
+      library: {
+        statements: {
+          def: [
+            {
+              name: 'Test',
+              expression: {
+                type: 'Retrieve',
                 dataType: '{http://hl7.org/fhir}MedicationRequest',
               },
             },
@@ -65,7 +89,7 @@ describe('measure-resource-types.lib', () => {
       elmJson: JSON.stringify(elm),
       library: null,
     });
-    expect(result.unsupportedTypes).toEqual(['MedicationRequest']);
-    expect(result.derivedTypes).toEqual(['Patient']);
+    expect(result.unsupportedTypes).toEqual([]);
+    expect(result.derivedTypes).toEqual(['MedicationRequest', 'Patient']);
   });
 });

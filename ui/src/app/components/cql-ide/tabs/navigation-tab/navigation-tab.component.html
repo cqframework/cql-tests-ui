@@ -21,7 +21,7 @@
           <input type="text" class="form-control form-control-sm" placeholder="Search libraries..."
             [ngModel]="libraryListSearchTerm()" (ngModelChange)="libraryListSearchTerm.set($event)"
             (keydown.enter)="onLibraryListSearch()" aria-label="Search libraries">
-          <button class="btn btn-outline-secondary btn-sm" type="button" (click)="onLibraryListSearch()" title="Search"
+          <button class="btn btn-secondary btn-sm" type="button" (click)="onLibraryListSearch()" title="Search"
             aria-label="Search libraries">
             <i class="bi bi-search"></i>
           </button>
@@ -48,7 +48,7 @@
             </select>
 
 
-            <button class="btn btn-outline-secondary btn-sm" (click)="changeSorting(librarySortBy())"
+            <button class="btn btn-secondary btn-sm" (click)="changeSorting(librarySortBy())"
               [title]="'Sort ' + (librarySortOrder() === 'asc' ? 'Descending' : 'Ascending')">
               <i class="bi bi-{{ librarySortOrder() === 'asc' ? 'arrow-up' : 'arrow-down' }}"></i>
             </button>
@@ -166,7 +166,7 @@
     <div class="border rounded mx-3 bg-body-secondary">
       <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
         <div class="fw-semibold text-info">Selected Patients ({{ patientService.selectedPatients.length }})</div>
-        <button id="ide-context-clear" class="btn btn-outline-secondary btn-sm" (click)="clearPatientSelection()"
+        <button id="ide-context-clear" class="btn btn-secondary btn-sm" (click)="clearPatientSelection()"
           title="Clear All Patients">
           <i class="bi bi-x me-1"></i>
           Clear
@@ -178,7 +178,7 @@
           <div class="fw-semibold text-body text-truncate">{{ getPatientDisplayName(patient) }}</div>
           <div class="small text-muted text-truncate">{{ patient.id }}</div>
         </div>
-        <button class="selected-patient-remove btn btn-outline-secondary btn-sm" (click)="removePatient(patient.id!)"
+        <button class="selected-patient-remove btn btn-secondary btn-sm" (click)="removePatient(patient.id!)"
           title="Remove Patient">
           <i class="bi bi-x"></i>
         </button>
@@ -215,7 +215,7 @@
     <div class="border rounded mx-3 bg-body-secondary">
       <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
         <div class="fw-semibold text-info">Selected Groups ({{ groupService.selectedGroups.length }})</div>
-        <button id="ide-context-clear" class="btn btn-outline-secondary btn-sm" (click)="clearGroupSelection()"
+        <button id="ide-context-clear" class="btn btn-secondary btn-sm" (click)="clearGroupSelection()"
           title="Clear All Groups">
           <i class="bi bi-x me-1"></i>
           Clear
@@ -227,7 +227,7 @@
           <div class="fw-semibold text-body text-truncate">{{ getGroupDisplayName(group) }}</div>
           <div class="small text-muted text-truncate">{{ group.id }}</div>
         </div>
-        <button class="selected-patient-remove btn btn-outline-secondary btn-sm" (click)="removeGroup(group.id!)"
+        <button class="selected-patient-remove btn btn-secondary btn-sm" (click)="removeGroup(group.id!)"
           title="Remove Group">
           <i class="bi bi-x"></i>
         </button>

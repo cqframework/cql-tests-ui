@@ -127,6 +127,12 @@ function mergeFlatTables(a: FlatTables, b: Partial<FlatTables>): FlatTables {
     observation_view: a.observation_view,
     procedure_view: a.procedure_view,
     condition_view: a.condition_view,
+    medication_request_view: a.medication_request_view,
+    diagnostic_report_view: a.diagnostic_report_view,
+    coverage_view: a.coverage_view,
+    allergy_intolerance_view: a.allergy_intolerance_view,
+    immunization_view: a.immunization_view,
+    service_request_view: a.service_request_view,
     value_set_expansion: (b.value_set_expansion ?? []).concat(a.value_set_expansion),
   };
 }

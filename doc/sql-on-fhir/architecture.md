@@ -26,7 +26,7 @@ How the CQL → ELM → SQL → execute → MeasureReport pipeline is built insi
                 ┌────────────────────────┐    ┌──────────────────────────────────┐
                 │ ElmToSqlTranspiler     │    │ SqlOnFhirExecutionDataService    │
                 │ (in-app library)       │    │  - ELM-driven type fetch         │
-                │  - parameterValues     │    │  - $everything?_type + fallback  │
+                │  - parameterValues     │    │  - per-type FHIR search + progress │
                 │  → { sql, populations} │    │  - value-set expansion at exec   │
                 └────────────────────────┘    └──────────────┬───────────────────┘
                                                              │ FlatTables
@@ -76,7 +76,7 @@ How the CQL → ELM → SQL → execute → MeasureReport pipeline is built insi
 | [src/app/services/sql-on-fhir/sql-on-fhir-pglite.service.ts](../../src/app/services/sql-on-fhir/sql-on-fhir-pglite.service.ts) | In-browser Postgres via PGlite. Lazy boot, schema, seed, execute. |
 | [src/app/services/sql-on-fhir/sql-on-fhir-bundle-flattener.lib.ts](../../src/app/services/sql-on-fhir/sql-on-fhir-bundle-flattener.lib.ts) | FHIR Bundle → flat rows, matching `STANDARD_VIEW_DEFINITIONS`. |
 | [src/app/services/sql-on-fhir/sql-on-fhir-demo.service.ts](../../src/app/services/sql-on-fhir/sql-on-fhir-demo.service.ts) | Fetches shipped CMS125 preset content (optional shortcut, not a separate execution path). |
-| [src/app/services/patient.service.ts](../../src/app/services/patient.service.ts) | FHIR Patient search and `Patient/{id}/$everything?_type=…` for execution seed data. |
+| [src/app/services/patient.service.ts](../../src/app/services/patient.service.ts) | FHIR Patient CRUD/search. (`$everything` remains available but SQL-on-FHIR seed uses per-type search.) |
 | [src/app/services/translation.service.ts](../../src/app/services/translation.service.ts) | `@cqframework/cql` wrapper. Exposes both ELM XML and ELM JSON. |
 | [public/fhir/sql-on-fhir/](../../public/fhir/sql-on-fhir/) | Static CMS125 preset Library, Bundle, and ValueSets. |
 | [scripts/hapi-fhir-sql-on-fhir/](../../scripts/hapi-fhir-sql-on-fhir/) | PostgreSQL view scripts for HAPI FHIR JPA — the server-side counterpart. |
@@ -97,7 +97,7 @@ The transpiler targets a schema whose tables are *named like* the SQL-on-FHIR vi
 4. `library-parameters.lib` merges FHIR + ELM parameters into specs; defaults populate `executionParameters` (Measurement Period, etc.).
 5. Effect: `elmJsonRaw` or `executionParameters` change → `SqlOnFhirPipelineService.generateSql(elmJson, library, parameterValues)` → `sqlText` signal.
 6. `assessMeasureLibraryCompatibility()` runs continuously; blocking issues disable **Execute SQL** and list reasons on the Execute tab.
-7. `measure-resource-types.lib` derives flattenable resource types from ELM `Retrieve` nodes and `Library.dataRequirement`. The Execute tab shows checkboxes (defaults = all derived types; **Patient** cannot be unchecked). When patients are selected, an effect prefetches clinical data: for each patient, `GET Patient/{id}` plus `GET Patient/{id}/$everything?_type=…` for selected non-Patient types. If `$everything` is unsupported, compartment search (`ResourceType?patient=Patient/{id}`) with paginated `next` links is used instead. CMS125 preset skips this UI and uses the bundled patient bundle.
+7. `measure-resource-types.lib` lists flattenable types (Tier 1 clinical set). The Execute tab shows checkboxes for **all** flattenable types (defaults = all selected; **Patient** cannot be unchecked; measure-derived types are badged). When patients are selected, an effect prefetches clinical data with ordinary paginated searches: `GET Patient/{id}` plus `GET {Type}?patient=Patient/{id}` (Coverage uses `beneficiary`). Progress callbacks drive a determinate progress bar and live resource tally. CMS125 preset skips this UI and uses the bundled patient bundle. Estimated JSON payload size is tracked; ≥ 32 MiB triggers a warning with a clear-data action.
 8. Prefetched bundles are stored in `executionBundle`; `dataKey` is `patients:{sortedIds}|types:{sortedTypes}` so PGlite re-seeds when patient selection or resource-type selection changes. User clicks **Execute SQL** → `prepareExecutionSeedData()` builds `ExecutionSeedData`:
    - `dataKey` from patient IDs + selected types (or preset key for CMS125)
    - `bundle` from prefetched compartment data or preset bundle

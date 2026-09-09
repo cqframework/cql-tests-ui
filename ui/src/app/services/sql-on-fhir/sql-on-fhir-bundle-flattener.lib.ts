@@ -14,6 +14,12 @@ import type {
   Observation,
   Procedure,
   Condition,
+  MedicationRequest,
+  DiagnosticReport,
+  Coverage,
+  AllergyIntolerance,
+  Immunization,
+  ServiceRequest,
   CodeableConcept,
   Period,
   Reference,
@@ -30,6 +36,12 @@ export interface FlatTables {
   observation_view: FlatRow[];
   procedure_view: FlatRow[];
   condition_view: FlatRow[];
+  medication_request_view: FlatRow[];
+  diagnostic_report_view: FlatRow[];
+  coverage_view: FlatRow[];
+  allergy_intolerance_view: FlatRow[];
+  immunization_view: FlatRow[];
+  service_request_view: FlatRow[];
   /** value_set_id is the canonical URL of the ValueSet; code is one expansion entry's code. */
   value_set_expansion: FlatRow[];
 }
@@ -41,6 +53,12 @@ export function emptyFlatTables(): FlatTables {
     observation_view: [],
     procedure_view: [],
     condition_view: [],
+    medication_request_view: [],
+    diagnostic_report_view: [],
+    coverage_view: [],
+    allergy_intolerance_view: [],
+    immunization_view: [],
+    service_request_view: [],
     value_set_expansion: [],
   };
 }
@@ -65,6 +83,24 @@ export function flattenBundle(bundle: Bundle): FlatTables {
         break;
       case 'Condition':
         out.condition_view.push(flattenCondition(r as Condition));
+        break;
+      case 'MedicationRequest':
+        out.medication_request_view.push(flattenMedicationRequest(r as MedicationRequest));
+        break;
+      case 'DiagnosticReport':
+        out.diagnostic_report_view.push(flattenDiagnosticReport(r as DiagnosticReport));
+        break;
+      case 'Coverage':
+        out.coverage_view.push(flattenCoverage(r as Coverage));
+        break;
+      case 'AllergyIntolerance':
+        out.allergy_intolerance_view.push(flattenAllergyIntolerance(r as AllergyIntolerance));
+        break;
+      case 'Immunization':
+        out.immunization_view.push(flattenImmunization(r as Immunization));
+        break;
+      case 'ServiceRequest':
+        out.service_request_view.push(flattenServiceRequest(r as ServiceRequest));
         break;
       case 'ValueSet':
         out.value_set_expansion.push(...flattenValueSetExpansion(r as ValueSet));
@@ -206,6 +242,106 @@ export function flattenCondition(c: Condition): FlatRow {
     recorded_date: c.recordedDate ?? null,
     encounter_id: extractReferenceId(c.encounter) ?? null,
     category_code: firstCategoryCode(c.category) ?? null,
+  };
+}
+
+export function flattenMedicationRequest(m: MedicationRequest): FlatRow {
+  const medCc = m.medicationCodeableConcept;
+  const medCoding = medCc?.coding?.[0];
+  return {
+    id: m.id ?? null,
+    subject_id: extractReferenceId(m.subject) ?? null,
+    status: m.status ?? null,
+    intent: m.intent ?? null,
+    medication_code: medCoding?.code ?? null,
+    medication_system: medCoding?.system ?? null,
+    medication_display: medCoding?.display ?? null,
+    authored_on: m.authoredOn ?? null,
+    encounter_id: extractReferenceId(m.encounter) ?? null,
+    requester_id: extractReferenceId(m.requester) ?? null,
+  };
+}
+
+export function flattenDiagnosticReport(d: DiagnosticReport): FlatRow {
+  const firstCoding = d.code?.coding?.[0];
+  return {
+    id: d.id ?? null,
+    subject_id: extractReferenceId(d.subject) ?? null,
+    status: d.status ?? null,
+    code: firstCoding?.code ?? null,
+    code_system: firstCoding?.system ?? null,
+    effective_datetime: d.effectiveDateTime ?? null,
+    issued: d.issued ?? null,
+    encounter_id: extractReferenceId(d.encounter) ?? null,
+    category_code: firstCategoryCode(d.category) ?? null,
+  };
+}
+
+export function flattenCoverage(c: Coverage): FlatRow {
+  return {
+    id: c.id ?? null,
+    beneficiary_id: extractReferenceId(c.beneficiary) ?? null,
+    status: c.status ?? null,
+    type_code: c.type?.coding?.[0]?.code ?? null,
+    payer_id: extractReferenceId(c.payor?.[0]) ?? null,
+    period_start: c.period?.start ?? null,
+    period_end: c.period?.end ?? null,
+  };
+}
+
+export function flattenAllergyIntolerance(a: AllergyIntolerance): FlatRow {
+  const firstCoding = a.code?.coding?.[0];
+  return {
+    id: a.id ?? null,
+    patient_id: extractReferenceId(a.patient) ?? null,
+    clinical_status: a.clinicalStatus?.coding?.[0]?.code ?? null,
+    verification_status: a.verificationStatus?.coding?.[0]?.code ?? null,
+    code: firstCoding?.code ?? null,
+    code_system: firstCoding?.system ?? null,
+    onset_datetime: a.onsetDateTime ?? null,
+    recorded_date: a.recordedDate ?? null,
+  };
+}
+
+export function flattenImmunization(i: Immunization): FlatRow {
+  const vaccineCoding = i.vaccineCode?.coding?.[0];
+  return {
+    id: i.id ?? null,
+    patient_id: extractReferenceId(i.patient) ?? null,
+    status: i.status ?? null,
+    vaccine_code: vaccineCoding?.code ?? null,
+    vaccine_system: vaccineCoding?.system ?? null,
+    occurrence_datetime: i.occurrenceDateTime ?? null,
+    primary_source: typeof i.primarySource === 'boolean' ? i.primarySource : null,
+    encounter_id: extractReferenceId(i.encounter) ?? null,
+  };
+}
+
+export function flattenServiceRequest(s: ServiceRequest): FlatRow {
+  const firstCoding = s.code?.coding?.[0];
+  const occurrencePeriod = (s as ServiceRequest & { occurrencePeriod?: Period }).occurrencePeriod;
+  return {
+    id: s.id ?? null,
+    subject_id: extractReferenceId(s.subject) ?? null,
+    status: s.status ?? null,
+    intent: s.intent ?? null,
+    category_code: firstCategoryCode(s.category) ?? null,
+    category_system: Array.isArray(s.category) ? s.category[0]?.coding?.[0]?.system ?? null : null,
+    code: firstCoding?.code ?? null,
+    code_system: firstCoding?.system ?? null,
+    code_display: firstCoding?.display ?? null,
+    code_text: s.code?.text ?? null,
+    occurrence_datetime: s.occurrenceDateTime ?? null,
+    occurrence_start: occurrencePeriod?.start ?? null,
+    occurrence_end: occurrencePeriod?.end ?? null,
+    authored_on: s.authoredOn ?? null,
+    requester_id: extractReferenceId(s.requester) ?? null,
+    performer_id: extractReferenceId(s.performer?.[0]) ?? null,
+    reason_code: s.reasonCode?.[0]?.coding?.[0]?.code ?? null,
+    do_not_perform: typeof s.doNotPerform === 'boolean' ? s.doNotPerform : null,
+    priority: s.priority ?? null,
+    encounter_id: extractReferenceId(s.encounter) ?? null,
+    insurance_id: extractReferenceId(s.insurance?.[0]) ?? null,
   };
 }
 

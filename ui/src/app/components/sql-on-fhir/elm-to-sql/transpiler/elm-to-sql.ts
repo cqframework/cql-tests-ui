@@ -88,11 +88,29 @@ const RESOURCE_CODE_COLUMN: Record<string, string> = {
   Encounter: 'type_code',
   AllergyIntolerance: 'code',
   Immunization: 'vaccine_code',
+  MedicationRequest: 'medication_code',
+  Coverage: 'type_code',
   ServiceRequest: 'code',
+};
+
+/**
+ * Patient FK column per resource view. Coverage uses beneficiary_id;
+ * AllergyIntolerance / Immunization use patient_id; most clinical resources
+ * use subject_id.
+ */
+const RESOURCE_PATIENT_KEY_COLUMN: Record<string, string> = {
+  Patient: 'id',
+  Coverage: 'beneficiary_id',
+  AllergyIntolerance: 'patient_id',
+  Immunization: 'patient_id',
 };
 
 function codeColumnFor(resource: string): string {
   return RESOURCE_CODE_COLUMN[resource] ?? 'code';
+}
+
+function patientKeyColumnFor(resource: string): string {
+  return RESOURCE_PATIENT_KEY_COLUMN[resource] ?? 'subject_id';
 }
 
 /**
@@ -416,7 +434,7 @@ export class ElmToSqlTranspiler {
     return `${cteName} AS (\n${comment}${this.indent(body)}\n)`;
   }
 
-  /** Row-key column for a define's rows: `id` for patient-shaped, `subject_id` for resource-shaped. */
+  /** Row-key column for a define's rows: `id` for patient-shaped, patient FK for resource-shaped. */
   private rowKeyColumnFor(expr: ElmExpression, isPatientContext: boolean, statementShaped: boolean): string {
     if (!statementShaped) {
       // Bare boolean wrapped over Patient rows.
@@ -427,7 +445,7 @@ export class ElmToSqlTranspiler {
       return this.defineKeyColumn.get(ref) ?? 'subject_id';
     }
     const resource = rootRetrieveResource(expr);
-    return resource === 'Patient' ? 'id' : 'subject_id';
+    return resource ? patientKeyColumnFor(resource) : 'subject_id';
   }
 
   // ─── Expression dispatch ───────────────────────────────────────────────────
@@ -656,7 +674,8 @@ export class ElmToSqlTranspiler {
       ? `AND ${this.exprToSqlInline(rel.suchThat, context)}`
       : '';
     const keyword = rel.type === 'With' ? 'EXISTS' : 'NOT EXISTS';
-    return `AND ${keyword} (\n  SELECT 1 FROM ${relView} AS ${rel.alias}\n  WHERE ${rel.alias}.subject_id = ${parentAlias}.id ${suchThat}\n)`;
+    const patientKey = patientKeyColumnFor(rootRetrieveResource(rel.expression) ?? '');
+    return `AND ${keyword} (\n  SELECT 1 FROM ${relView} AS ${rel.alias}\n  WHERE ${rel.alias}.${patientKey} = ${parentAlias}.id ${suchThat}\n)`;
   }
 
   // ─── Expression references ─────────────────────────────────────────────────
@@ -1007,7 +1026,7 @@ export class ElmToSqlTranspiler {
       return this.defineKeyColumn.get(ref) ?? null;
     }
     const resource = rootRetrieveResource(operand);
-    if (resource) return resource === 'Patient' ? 'id' : 'subject_id';
+    if (resource) return patientKeyColumnFor(resource);
     return null;
   }
 
@@ -1172,12 +1191,15 @@ export class ElmToSqlTranspiler {
     const [primarySource, ...additionalSources] = expr.source;
     const alias = primarySource.alias;
     const resourceFrom = this.exprToSqlInline(primarySource.expression, context);
-    const conditions: string[] = [`${alias}.subject_id = Patient.id`];
+    const primaryResource = rootRetrieveResource(primarySource.expression) ?? '';
+    const primaryKey = patientKeyColumnFor(primaryResource);
+    const conditions: string[] = [`${alias}.${primaryKey} = Patient.id`];
 
     for (const src of additionalSources) {
       const srcSql = this.exprToSqlInline(src.expression, context);
+      const srcKey = patientKeyColumnFor(rootRetrieveResource(src.expression) ?? '');
       conditions.push(
-        `EXISTS (SELECT 1 FROM ${srcSql} AS ${src.alias} WHERE ${src.alias}.subject_id = Patient.id)`,
+        `EXISTS (SELECT 1 FROM ${srcSql} AS ${src.alias} WHERE ${src.alias}.${srcKey} = Patient.id)`,
       );
     }
 
@@ -1187,8 +1209,9 @@ export class ElmToSqlTranspiler {
         ? `AND ${this.exprToSqlInline(rel.suchThat, context)}`
         : '';
       const keyword = rel.type === 'With' ? 'EXISTS' : 'NOT EXISTS';
+      const relKey = patientKeyColumnFor(rootRetrieveResource(rel.expression) ?? '');
       conditions.push(
-        `${keyword} (SELECT 1 FROM ${relView} AS ${rel.alias} WHERE ${rel.alias}.subject_id = ${alias}.id ${suchThat})`,
+        `${keyword} (SELECT 1 FROM ${relView} AS ${rel.alias} WHERE ${rel.alias}.${relKey} = ${alias}.id ${suchThat})`,
       );
     }
 

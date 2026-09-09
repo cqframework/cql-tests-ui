@@ -34,11 +34,17 @@ describe('SqlOnFhirPgliteService', () => {
     `);
     const names = result.rows.map(r => r.table_name);
     expect(names).toEqual([
+      'allergy_intolerance_view',
       'condition_view',
+      'coverage_view',
+      'diagnostic_report_view',
       'encounter_view',
+      'immunization_view',
+      'medication_request_view',
       'observation_view',
       'patient_view',
       'procedure_view',
+      'service_request_view',
     ]);
   });
 

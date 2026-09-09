@@ -307,4 +307,65 @@ describe('flattenBundle', () => {
     };
     expect(flattenBundle(bundle).observation_view[0]['subject_id']).toBe('foo-123');
   });
+
+  it('flattens Tier 1 MedicationRequest, Immunization, and Coverage', () => {
+    const bundle: Bundle = {
+      resourceType: 'Bundle',
+      type: 'collection',
+      entry: [
+        {
+          resource: {
+            resourceType: 'MedicationRequest',
+            id: 'mr-1',
+            status: 'active',
+            intent: 'order',
+            subject: { reference: 'Patient/p1' },
+            medicationCodeableConcept: {
+              coding: [{ system: 'http://www.nlm.nih.gov/research/umls/rxnorm', code: '860975' }],
+            },
+            authoredOn: '2024-03-01',
+          },
+        },
+        {
+          resource: {
+            resourceType: 'Immunization',
+            id: 'imm-1',
+            status: 'completed',
+            patient: { reference: 'Patient/p1' },
+            vaccineCode: { coding: [{ system: 'http://hl7.org/fhir/sid/cvx', code: '141' }] },
+            occurrenceDateTime: '2024-01-15',
+            primarySource: true,
+          },
+        },
+        {
+          resource: {
+            resourceType: 'Coverage',
+            id: 'cov-1',
+            status: 'active',
+            beneficiary: { reference: 'Patient/p1' },
+            payor: [{ reference: 'Organization/org-1' }],
+            type: { coding: [{ code: 'EHCPOL' }] },
+            period: { start: '2024-01-01', end: '2024-12-31' },
+          },
+        },
+      ],
+    };
+    const tables = flattenBundle(bundle);
+    expect(tables.medication_request_view[0]).toMatchObject({
+      id: 'mr-1',
+      subject_id: 'p1',
+      medication_code: '860975',
+    });
+    expect(tables.immunization_view[0]).toMatchObject({
+      id: 'imm-1',
+      patient_id: 'p1',
+      vaccine_code: '141',
+    });
+    expect(tables.coverage_view[0]).toMatchObject({
+      id: 'cov-1',
+      beneficiary_id: 'p1',
+      type_code: 'EHCPOL',
+      payer_id: 'org-1',
+    });
+  });
 });
