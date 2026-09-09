@@ -76,7 +76,7 @@ steps:
     image: plugins/docker
     settings:
       dockerfile: server/Dockerfile
-      repo: p3000/cql-studio-server
+      repo: hlseven/quality-cql-studio-server
       tags:
         - ${DRONE_COMMIT_BRANCH}-linux-amd64
       username:
@@ -95,7 +95,7 @@ steps:
     image: plugins/docker
     settings:
       dockerfile: server/Dockerfile
-      repo: p3000/cql-studio-server
+      repo: hlseven/quality-cql-studio-server
       tags:
         - ${DRONE_COMMIT_BRANCH}-linux-arm64
       username:
@@ -117,8 +117,8 @@ steps:
         from_secret: docker_username
       password:
         from_secret: docker_password
-      target: p3000/cql-studio-server:latest
-      template: p3000/cql-studio-server:master-OS-ARCH
+      target: hlseven/quality-cql-studio-server:latest
+      template: hlseven/quality-cql-studio-server:master-OS-ARCH
       platforms:
         - linux/amd64
         - linux/arm64

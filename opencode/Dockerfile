@@ -35,7 +35,7 @@ ENV CQL_STUDIO_OPENCODE_INTERNAL_PORT=4096
 ENV CQL_STUDIO_OPENCODE_WORKSPACE_ROOT=/app/opencode/workspaces
 ENV PATH="/app/node_modules/.bin:${PATH}"
 
-COPY --from=builder /app/package.json /app/package-lock.json ./
+COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/core/package.json ./core/
 COPY --from=builder /app/core/build ./core/build

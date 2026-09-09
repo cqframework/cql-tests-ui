@@ -35,6 +35,22 @@
   },
   "optionalDependencies": {
     "@typescript/typescript-linux-arm64": "7.0.2",
-    "@typescript/typescript-linux-x64": "7.0.2"
+    "@typescript/typescript-linux-x64": "7.0.2",
+    "@esbuild/linux-arm64": "0.28.2",
+    "@esbuild/linux-x64": "0.28.2",
+    "@oxc-parser/binding-linux-arm64-musl": "0.149.0",
+    "@oxc-parser/binding-linux-x64-musl": "0.149.0",
+    "@rolldown/binding-linux-arm64-musl": "1.2.8",
+    "@rolldown/binding-linux-x64-musl": "1.2.8",
+    "lightningcss-linux-arm64-musl": "1.33.0",
+    "lightningcss-linux-x64-musl": "1.33.0",
+    "@napi-rs/nice-linux-arm64-musl": "1.1.1",
+    "@napi-rs/nice-linux-x64-musl": "1.1.1",
+    "@lmdb/lmdb-linux-arm64": "3.5.6",
+    "@lmdb/lmdb-linux-x64": "3.5.6",
+    "@parcel/watcher-linux-arm64-musl": "2.6.0",
+    "@parcel/watcher-linux-x64-musl": "2.6.0",
+    "@msgpackr-extract/msgpackr-extract-linux-arm64": "3.0.4",
+    "@msgpackr-extract/msgpackr-extract-linux-x64": "3.0.4"
   }
 }

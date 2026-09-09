@@ -29,7 +29,7 @@ services:
     restart: unless-stopped
 
   cql-studio-server:
-    image: docker.io/p3000/cql-studio-server:latest
+    image: docker.io/hlseven/quality-cql-studio-server:latest
     build:
       context: ..
       dockerfile: server/Dockerfile
