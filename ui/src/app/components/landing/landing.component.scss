@@ -4,12 +4,14 @@
   padding: 2rem 0;
 }
 
-// .landing-content {
-  // padding: 3rem;
-  // background: rgba(255, 255, 255, 0.95);
-  // border-radius: 1rem;
-  // box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
-// }
+.landing-env-info {
+  width: fit-content;
+  max-width: min(36rem, 100%);
+}
+
+.landing-env-label {
+  min-width: 7.5rem;
+}
 
 @media (max-width: 768px) {
   .landing-content {

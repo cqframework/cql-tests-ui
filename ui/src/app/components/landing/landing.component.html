@@ -7,7 +7,7 @@
             CQL Studio
           </h1>
           <p class="lead mb-4">
-            Integrated authoring and publishing suite for Clinical Quality Language artifacts and FHIR
+            Authoring, publishing, and testing for Clinical Quality Language artifacts using FHIR
           </p>
           <div class="d-flex flex-wrap gap-3 justify-content-center align-items-center mb-5">
             <!-- <a id="open-results-btn" class="btn btn-primary btn-lg" routerLink="/results/open">
@@ -23,44 +23,52 @@
               CQL Studio Website
             </a>
           </div>
-          <div class="small text-muted m-2 text-start d-inline-block">
-            <div class="d-flex mb-1">
-              <span class="badge bg-secondary me-2" style="min-width: 10rem">Environment</span>
-              <span>{{ activeEnvironmentName() }}</span>
+          <dl id="landing-environment-info" class="d-flex flex-column gap-2 small text-start mx-auto mb-0 landing-env-info">
+            <div class="d-flex gap-3">
+              <dt class="text-muted text-nowrap text-end mb-0 landing-env-label">Environment</dt>
+              <dd class="mb-0 text-break">{{ activeEnvironmentName() }}</dd>
             </div>
-            <div class="d-flex mb-1">
-              <span class="badge bg-primary me-2" style="min-width: 10rem">Evaluation</span>
-              @if (evaluationServerUrl(); as url) {
-                <a [href]="url" target="_blank" rel="noopener" class="text-body text-break">{{ url }}</a>
-              } @else {
-                <span>Not configured</span>
-              }
+            <div class="d-flex gap-3">
+              <dt class="text-muted text-nowrap text-end mb-0 landing-env-label">Evaluation</dt>
+              <dd class="mb-0 text-break">
+                @if (evaluationServerUrl(); as url) {
+                  <a [href]="url" target="_blank" rel="noopener">{{ url }}</a>
+                } @else {
+                  <span class="text-muted">Not configured</span>
+                }
+              </dd>
             </div>
-            <div class="d-flex mb-1">
-              <span class="badge bg-primary me-2" style="min-width: 10rem">Data</span>
-              @if (dataEndpointUrl(); as url) {
-                <a [href]="url" target="_blank" rel="noopener" class="text-body text-break">{{ url }}</a>
-              } @else {
-                <span>Not configured</span>
-              }
+            <div class="d-flex gap-3">
+              <dt class="text-muted text-nowrap text-end mb-0 landing-env-label">Data</dt>
+              <dd class="mb-0 text-break">
+                @if (dataEndpointUrl(); as url) {
+                  <a [href]="url" target="_blank" rel="noopener">{{ url }}</a>
+                } @else {
+                  <span class="text-muted">Not configured</span>
+                }
+              </dd>
             </div>
-            <div class="d-flex mb-1">
-              <span class="badge bg-primary me-2" style="min-width: 10rem">Terminology</span>
-              @if (terminologyEndpointUrl(); as url) {
-                <a [href]="url" target="_blank" rel="noopener" class="text-body text-break">{{ url }}</a>
-              } @else {
-                <span>Not configured</span>
-              }
+            <div class="d-flex gap-3">
+              <dt class="text-muted text-nowrap text-end mb-0 landing-env-label">Terminology</dt>
+              <dd class="mb-0 text-break">
+                @if (terminologyEndpointUrl(); as url) {
+                  <a [href]="url" target="_blank" rel="noopener">{{ url }}</a>
+                } @else {
+                  <span class="text-muted">Not configured</span>
+                }
+              </dd>
             </div>
-            <div class="d-flex">
-              <span class="badge bg-primary me-2" style="min-width: 10rem">Content</span>
-              @if (contentEndpointUrl(); as url) {
-                <a [href]="url" target="_blank" rel="noopener" class="text-body text-break">{{ url }}</a>
-              } @else {
-                <span>Same as evaluation</span>
-              }
+            <div class="d-flex gap-3">
+              <dt class="text-muted text-nowrap text-end mb-0 landing-env-label">Content</dt>
+              <dd class="mb-0 text-break">
+                @if (contentEndpointUrl(); as url) {
+                  <a [href]="url" target="_blank" rel="noopener">{{ url }}</a>
+                } @else {
+                  <span class="text-muted">Same as evaluation</span>
+                }
+              </dd>
             </div>
-          </div>
+          </dl>
         </div>
       </div>
     </div>
