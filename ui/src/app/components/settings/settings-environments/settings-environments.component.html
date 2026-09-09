@@ -1,134 +1,102 @@
-<div class="row g-3" id="settings-environments">
-  <div class="col-md-4">
-    <div class="list-group" id="settings-environment-list">
-      @for (env of environments(); track env.id) {
-        <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-          [id]="'settings-environment-' + env.id"
-          [class.active]="selectedEnvironment()?.id === env.id"
-          (click)="selectEnvironment(env.id)">
-          <span class="text-truncate">{{ env.name }}</span>
-          <span class="d-flex gap-1 ms-2 flex-shrink-0">
+<div id="settings-environments">
+  <h1 class="h4 mb-2">Environments</h1>
+  <p class="text-body-secondary mb-4">Choose the FHIR servers used for evaluation, patient data, terminology, and library content.</p>
+
+  <div class="row g-4">
+    <div class="col-12 col-xl-3">
+      <div class="list-group mb-3" id="settings-environment-list" aria-label="Environments">
+        @for (env of environments(); track env.id) {
+          <button type="button" class="list-group-item list-group-item-action text-start"
+            [id]="'settings-environment-' + env.id" [disabled]="busy()"
+            [class.active]="selectedEnvironment()?.id === env.id"
+            [attr.aria-current]="selectedEnvironment()?.id === env.id ? 'true' : null"
+            (click)="selectEnvironment(env.id)">
+            <span class="d-block text-break">{{ env.name }}</span>
+            <span class="d-flex flex-wrap gap-1 mt-1">
+              @if (env.builtIn) { <span class="badge text-bg-secondary">Read-only</span> }
+              @if (env.id === activeEnvironmentId() && environmentService.isPersonalEnvironmentActive()) {
+                <span class="badge text-bg-primary">Active</span>
+              }
+            </span>
+          </button>
+        }
+      </div>
+      <button type="button" class="btn btn-outline-primary w-100" id="settings-environment-duplicate"
+        (click)="duplicateSelected()" [disabled]="!selectedEnvironment() || busy() || hasUnsavedChanges()">
+        <span class="bi bi-copy me-1" aria-hidden="true"></span>
+        {{ selectedEnvironment()?.builtIn ? 'Create editable copy' : 'Duplicate environment' }}
+      </button>
+    </div>
+
+    <div class="col-12 col-xl-9">
+      @if (editingEnvironment(); as env) {
+        @if (env.builtIn) {
+          <div class="alert alert-info" id="settings-environment-readonly" role="note">
+            Default Environment is read-only. Create an editable copy to customize it, then set your copy as active.
+          </div>
+        } @else if (!isActiveSelected()) {
+          <p class="text-body-secondary" id="settings-environment-inactive">Save your changes, then set this environment as active to use it in the IDE and new AI sessions.</p>
+        }
+
+        <form (ngSubmit)="saveEnvironment()">
+          <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+            <h2 class="h5 mb-0">Environment details</h2>
+            <div class="d-flex flex-wrap gap-2">
+              @if (!isActiveSelected()) {
+                <button type="button" class="btn btn-sm btn-primary" id="settings-environment-set-active"
+                  (click)="setAsActive()" [disabled]="busy() || hasUnsavedChanges()">Set as active</button>
+              }
+              @if (env.builtIn) {
+                <button type="button" class="btn btn-sm btn-outline-primary" id="settings-environment-reset-defaults"
+                  (click)="resetBuiltIn()" [disabled]="busy()">Reload defaults</button>
+              }
+              @if (canDeleteSelected()) {
+                <button type="button" class="btn btn-sm btn-outline-danger" id="settings-environment-delete"
+                  (click)="deleteSelected()" [disabled]="busy()">Delete</button>
+              }
+            </div>
+          </div>
+
+          <div class="mb-4">
             @if (env.builtIn) {
-              <span class="badge text-bg-secondary">built-in</span>
+              <span class="form-label d-block">Name</span>
+              <p class="mb-0 text-break" id="settings-environment-name">{{ env.name }}</p>
+            } @else {
+            <label class="form-label" for="settings-environment-name">Name</label>
+            <input type="text" class="form-control" id="settings-environment-name" name="environmentName"
+              [ngModel]="env.name" (ngModelChange)="updateSelectedName($event)" [disabled]="!!env.builtIn || busy()" required>
             }
-            @if (env.id === activeEnvironmentId() && environmentService.isPersonalEnvironmentActive()) {
-              <span class="badge text-bg-primary">active</span>
+          </div>
+
+          @for (section of endpointSections; track section.field) {
+            <section class="border-top pt-3 mb-4" [id]="section.sectionId" [attr.aria-labelledby]="section.id + '-heading'">
+              <h3 class="h6 mb-1" [id]="section.id + '-heading'">{{ section.title }}</h3>
+              <p class="small text-body-secondary mb-3">{{ section.description }}</p>
+              <app-settings-endpoint-editor [idPrefix]="section.id" [label]="section.title + ' URL'"
+                [placeholder]="section.field === 'evaluationServer' ? defaultEvaluationServerUrl() : env.evaluationServer.address || defaultEvaluationServerUrl()"
+                [description]="section.field === 'evaluationServer' ? '' : 'Uses the evaluation server when left blank.'"
+                [disabled]="busy()" [readonly]="!!env.builtIn"
+                [endpoint]="env[section.field]" (endpointChange)="updateEndpoint(section.field, $event)" />
+            </section>
+          }
+
+          @if (!env.builtIn) {
+            @if (saveError()) {
+              <div class="alert alert-danger" role="alert" id="settings-environment-save-error">{{ saveError() }}</div>
             }
-          </span>
-        </button>
+            <div class="border-top pt-3 d-flex flex-wrap align-items-center gap-2">
+              <button type="submit" class="btn btn-primary" id="settings-environment-save" [disabled]="busy() || !hasUnsavedChanges()">
+                {{ busy() ? 'Saving…' : 'Save environment' }}
+              </button>
+              <button type="button" class="btn btn-outline-secondary" id="settings-environment-discard"
+                (click)="discardChanges()" [disabled]="busy() || !hasUnsavedChanges()">Discard changes</button>
+              <span class="small text-body-secondary" role="status" id="settings-environment-save-status">
+                {{ hasUnsavedChanges() ? 'Unsaved changes' : 'All changes saved' }}
+              </span>
+            </div>
+          }
+        </form>
       }
     </div>
-    <button type="button" class="btn btn-sm btn-outline-primary mt-2 w-100" id="settings-environment-duplicate"
-      (click)="duplicateSelected()" [disabled]="!selectedEnvironment()">
-      <span class="bi bi-copy me-1"></span>Duplicate
-    </button>
-  </div>
-
-  <div class="col-md-8">
-    @if (editingEnvironment(); as env) {
-      <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <h6 class="card-title mb-0">Environment details</h6>
-          <div class="d-flex flex-wrap gap-2">
-            @if (!isActiveSelected()) {
-              <button type="button" class="btn btn-sm btn-primary" id="settings-environment-set-active"
-                (click)="setAsActive()">Set as active</button>
-            }
-            @if (env.builtIn) {
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="settings-environment-reset-defaults"
-                (click)="resetBuiltIn()">Reset Default Values</button>
-            }
-            @if (canDeleteSelected()) {
-              <button type="button" class="btn btn-sm btn-outline-danger" id="settings-environment-delete"
-                (click)="deleteSelected()">Delete</button>
-            }
-          </div>
-        </div>
-        <div class="card-body d-flex flex-column gap-3">
-          <div class="card border">
-            <div class="card-header py-2">
-              <h6 class="card-title mb-0" id="settings-environment-general-section">
-                <span class="bi bi-tag me-2"></span>General
-              </h6>
-            </div>
-            <div class="card-body">
-              <div class="form-floating">
-                <input type="text" class="form-control" id="settings-environment-name" [ngModel]="env.name"
-                  (ngModelChange)="updateSelectedName($event)" [disabled]="!!env.builtIn" placeholder="Name">
-                <label for="settings-environment-name">Name</label>
-              </div>
-            </div>
-          </div>
-
-          <div class="card border" id="settings-environment-evaluation-section">
-            <div class="card-header py-2">
-              <h6 class="card-title mb-0">
-                <span class="bi bi-play-circle me-2"></span>Evaluation server
-              </h6>
-              <p class="small text-muted mb-0 mt-1">Library CRUD, $evaluate, $cql, and measure operations.</p>
-            </div>
-            <div class="card-body pt-2">
-              <app-settings-endpoint-editor idPrefix="settings-evaluation-server"
-                label="Evaluation server URL"
-                [placeholder]="defaultEvaluationServerUrl()"
-                [disabled]="!!env.builtIn"
-                [(endpoint)]="env.evaluationServer"
-                (endpointChange)="onEvaluationServerChange()" />
-            </div>
-          </div>
-
-          <div class="card border" id="settings-environment-data-section">
-            <div class="card-header py-2">
-              <h6 class="card-title mb-0">
-                <span class="bi bi-database me-2"></span>Data endpoint
-              </h6>
-              <p class="small text-muted mb-0 mt-1">Patient data, clipboard search, SQL-on-FHIR bundles, and AI FHIR tools. Falls back to the evaluation server when empty.</p>
-            </div>
-            <div class="card-body pt-2">
-              <app-settings-endpoint-editor idPrefix="settings-data-endpoint"
-                label="Data endpoint URL"
-                [placeholder]="'Same as evaluation server'"
-                [disabled]="!!env.builtIn"
-                [(endpoint)]="env.dataEndpoint"
-                (endpointChange)="onDataEndpointChange()" />
-            </div>
-          </div>
-
-          <div class="card border" id="settings-environment-terminology-section">
-            <div class="card-header py-2">
-              <h6 class="card-title mb-0">
-                <span class="bi bi-book me-2"></span>Terminology endpoint
-              </h6>
-              <p class="small text-muted mb-0 mt-1">ValueSet expansion, CodeSystem lookup, and terminology browser. Falls back to the evaluation server when empty.</p>
-            </div>
-            <div class="card-body pt-2">
-              <app-settings-endpoint-editor idPrefix="settings-terminology-endpoint"
-                label="Terminology endpoint URL"
-                [placeholder]="'Same as evaluation server'"
-                [disabled]="!!env.builtIn"
-                [(endpoint)]="env.terminologyEndpoint"
-                (endpointChange)="onTerminologyEndpointChange()" />
-            </div>
-          </div>
-
-          <div class="card border mb-0" id="settings-environment-content-section">
-            <div class="card-header py-2">
-              <h6 class="card-title mb-0">
-                <span class="bi bi-folder me-2"></span>Content endpoint
-              </h6>
-              <p class="small text-muted mb-0 mt-1">Library includes and the $evaluate contentEndpoint parameter. Falls back to the evaluation server when empty.</p>
-            </div>
-            <div class="card-body pt-2">
-              <app-settings-endpoint-editor idPrefix="settings-content-endpoint"
-                label="Content endpoint URL"
-                [placeholder]="'Same as evaluation server'"
-                [disabled]="!!env.builtIn"
-                [(endpoint)]="env.contentEndpoint"
-                (endpointChange)="onContentEndpointChange()" />
-            </div>
-          </div>
-        </div>
-      </div>
-    }
   </div>
 </div>

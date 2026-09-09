@@ -16,18 +16,19 @@ export class SettingsEndpointEditorComponent {
   readonly showCustomHeaders = input(true);
   readonly placeholder = input('');
   readonly disabled = input(false);
+  readonly readonly = input(false);
 
   readonly endpoint = model.required<EndpointConfiguration>();
 
   patchEndpoint(patch: Partial<EndpointConfiguration>): void {
-    if (this.disabled()) {
+    if (this.disabled() || this.readonly()) {
       return;
     }
     this.endpoint.set({ ...this.endpoint(), ...patch });
   }
 
   addHeader(): void {
-    if (this.disabled()) {
+    if (this.disabled() || this.readonly()) {
       return;
     }
     const current = this.endpoint();
@@ -38,7 +39,7 @@ export class SettingsEndpointEditorComponent {
   }
 
   removeHeader(index: number): void {
-    if (this.disabled()) {
+    if (this.disabled() || this.readonly()) {
       return;
     }
     const current = this.endpoint();
@@ -48,7 +49,7 @@ export class SettingsEndpointEditorComponent {
   }
 
   updateHeader(index: number, value: string): void {
-    if (this.disabled()) {
+    if (this.disabled() || this.readonly()) {
       return;
     }
     const current = this.endpoint();

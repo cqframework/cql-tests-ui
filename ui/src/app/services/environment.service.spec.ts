@@ -78,6 +78,34 @@ describe('EnvironmentService', () => {
     expect(ctx.headers['Authorization']).toBe(`Basic ${btoa('u:p')}`);
   });
 
+  it('resolves default endpoint roles for AI sessions without changing stored defaults', () => {
+    const before = structuredClone(service.activeEnvironment());
+    const resolved = service.getEffectiveActiveEnvironment();
+    for (const endpoint of [resolved.evaluationServer, resolved.dataEndpoint, resolved.terminologyEndpoint, resolved.contentEndpoint]) {
+      expect(endpoint.address).toBe(before.evaluationServer.address);
+    }
+    expect(service.activeEnvironment()).toEqual(before);
+    expect(service.activeEnvironment().dataEndpoint.address).toBe('');
+  });
+
+  it('preserves role-specific addresses and credentials when resolving a session snapshot', () => {
+    service.updateEnvironment({
+      ...service.activeEnvironment(),
+      evaluationServer: { address: 'http://eval/fhir/', headers: ['Authorization: Bearer evaluation-only'] },
+      dataEndpoint: { address: ' ', headers: ['X-Data-Tenant: example'] },
+      terminologyEndpoint: { address: 'http://term/fhir/', headers: ['Authorization: Bearer terminology-only'] },
+      contentEndpoint: { address: '', headers: [] },
+    });
+    const resolved = service.getEffectiveActiveEnvironment();
+    expect(resolved.dataEndpoint.address).toBe('http://eval/fhir');
+    expect(resolved.dataEndpoint.headers).toEqual(['X-Data-Tenant: example']);
+    expect(resolved.terminologyEndpoint.address).toBe('http://term/fhir');
+    expect(resolved.terminologyEndpoint.headers).toEqual(['Authorization: Bearer terminology-only']);
+    expect(resolved.contentEndpoint.headers).toEqual([]);
+    resolved.dataEndpoint.headers?.push('X-Probe: isolated');
+    expect(service.activeEnvironment().dataEndpoint.headers).toEqual(['X-Data-Tenant: example']);
+  });
+
   it('activates a workspace shared environment as first-class selection', () => {
     service.setWorkspaceCatalog([
       {

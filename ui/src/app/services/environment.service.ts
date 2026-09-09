@@ -284,6 +284,25 @@ export class EnvironmentService {
     return this.getEndpointConfigurationForEnvironment(this.activeEnvironment(), role);
   }
 
+  getEffectiveActiveEnvironment(): CqlEnvironment {
+    const environment = this.activeEnvironment();
+    const endpoint = (role: EndpointRole): EndpointConfiguration => {
+      const config = this.getEndpointConfigurationForEnvironment(environment, role);
+      return {
+        ...config,
+        headers: [...(config.headers ?? [])],
+        address: this.getEffectiveAddressForRoleOnEnvironment(environment, role),
+      };
+    };
+    return {
+      ...environment,
+      evaluationServer: endpoint('evaluation'),
+      dataEndpoint: endpoint('data'),
+      terminologyEndpoint: endpoint('terminology'),
+      contentEndpoint: endpoint('content'),
+    };
+  }
+
   getEndpointConfigurationForEnvironment(env: CqlEnvironment, role: EndpointRole): EndpointConfiguration {
     switch (role) {
       case 'evaluation':

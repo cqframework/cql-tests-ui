@@ -210,6 +210,10 @@ export class SettingsService {
     return this.environmentService.activeEnvironment();
   }
 
+  getEffectiveActiveEnvironment(): CqlEnvironment {
+    return this.environmentService.getEffectiveActiveEnvironment();
+  }
+
   getDefaultRunnerApiBaseUrl(): string {
     return readDeployConfig(DeployConfigKeys.RUNNER_BASE_URL);
   }

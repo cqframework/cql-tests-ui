@@ -1,11 +1,11 @@
 // Author: Preston Lee
 
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { EnvironmentService } from '../../../services/environment.service';
 import { EnvironmentSwitchService } from '../../../services/environment-switch.service';
 import { SettingsService } from '../../../services/settings.service';
-import { CqlEnvironment } from '../../../models/environment.model';
+import { CqlEnvironment, EndpointConfiguration } from '../../../models/environment.model';
 import { cloneEndpointConfiguration } from '../../../services/endpoint-config.lib';
 import { SettingsEndpointEditorComponent } from '../settings-endpoint-editor/settings-endpoint-editor.component';
 import { ToastService } from '../../../services/toast.service';
@@ -25,7 +25,15 @@ export class SettingsEnvironmentsComponent {
   readonly activeEnvironmentId = this.environmentService.activeEnvironmentId;
 
   readonly selectedEnvironmentId = signal<string | null>(null);
-  readonly editingEnvironment = signal<CqlEnvironment | null>(null);
+  private readonly drafts = signal<Record<string, CqlEnvironment>>({});
+  readonly busy = signal(false);
+  readonly saveError = signal<string | null>(null);
+  readonly endpointSections = [
+    { field: 'evaluationServer', id: 'settings-evaluation-server', sectionId: 'settings-environment-evaluation-section', title: 'Evaluation server', description: 'FHIR libraries, CQL evaluation, and measure operations.' },
+    { field: 'dataEndpoint', id: 'settings-data-endpoint', sectionId: 'settings-environment-data-section', title: 'Data endpoint', description: 'Patient data, searches, and AI FHIR tools.' },
+    { field: 'terminologyEndpoint', id: 'settings-terminology-endpoint', sectionId: 'settings-environment-terminology-section', title: 'Terminology endpoint', description: 'ValueSet expansion, CodeSystem lookup, and terminology browsing.' },
+    { field: 'contentEndpoint', id: 'settings-content-endpoint', sectionId: 'settings-environment-content-section', title: 'Content endpoint', description: 'Library dependencies and shared quality artifacts.' },
+  ] as const;
 
   readonly defaultEvaluationServerUrl = computed(
     () => this.environments().find((env) => env.builtIn)?.evaluationServer.address ?? ''
@@ -34,6 +42,16 @@ export class SettingsEnvironmentsComponent {
   readonly selectedEnvironment = computed(() => {
     const id = this.selectedEnvironmentId() ?? this.activeEnvironmentId();
     return this.environments().find(env => env.id === id) ?? this.environments()[0] ?? null;
+  });
+
+  readonly editingEnvironment = computed(() => {
+    const env = this.selectedEnvironment();
+    return env ? this.drafts()[env.id] ?? this.cloneEnvironment(env) : null;
+  });
+
+  readonly hasUnsavedChanges = computed(() => {
+    const env = this.selectedEnvironment();
+    return !!env && JSON.stringify(this.editingEnvironment()) !== JSON.stringify(this.cloneEnvironment(env));
   });
 
   readonly canDeleteSelected = computed(() => {
@@ -46,74 +64,38 @@ export class SettingsEnvironmentsComponent {
     return !!env && this.environmentService.isPersonalEnvironmentSelected(env.id);
   });
 
-  constructor() {
-    effect(() => {
-      const env = this.selectedEnvironment();
-      if (env) {
-        this.editingEnvironment.set(this.cloneEnvironment(env));
-      }
-    });
-  }
-
   selectEnvironment(id: string): void {
     this.selectedEnvironmentId.set(id);
+    this.saveError.set(null);
   }
 
   updateSelectedName(name: string): void {
-    const env = this.editingEnvironment();
-    if (!env || env.builtIn) {
-      return;
-    }
-    void this.persistEnvironment({ ...env, name });
+    this.updateDraft({ name });
   }
 
-  onEvaluationServerChange(): void {
-    const env = this.editingEnvironment();
-    if (!env || env.builtIn) {
-      return;
-    }
-    void this.persistEnvironment({
-      ...env,
-      evaluationServer: cloneEndpointConfiguration(env.evaluationServer)
-    });
+  updateEndpoint(
+    field: 'evaluationServer' | 'dataEndpoint' | 'terminologyEndpoint' | 'contentEndpoint',
+    endpoint: EndpointConfiguration
+  ): void {
+    this.updateDraft({ [field]: cloneEndpointConfiguration(endpoint) });
   }
 
-  onDataEndpointChange(): void {
+  private updateDraft(patch: Partial<CqlEnvironment>): void {
     const env = this.editingEnvironment();
-    if (!env || env.builtIn) {
-      return;
-    }
-    void this.persistEnvironment({
-      ...env,
-      dataEndpoint: cloneEndpointConfiguration(env.dataEndpoint)
-    });
+    if (!env || env.builtIn || this.busy()) return;
+    this.drafts.update(drafts => ({ ...drafts, [env.id]: { ...env, ...patch } }));
+    this.saveError.set(null);
   }
 
-  onTerminologyEndpointChange(): void {
-    const env = this.editingEnvironment();
-    if (!env || env.builtIn) {
-      return;
-    }
-    void this.persistEnvironment({
-      ...env,
-      terminologyEndpoint: cloneEndpointConfiguration(env.terminologyEndpoint)
-    });
-  }
-
-  onContentEndpointChange(): void {
-    const env = this.editingEnvironment();
-    if (!env || env.builtIn) {
-      return;
-    }
-    void this.persistEnvironment({
-      ...env,
-      contentEndpoint: cloneEndpointConfiguration(env.contentEndpoint)
-    });
+  discardChanges(): void {
+    const env = this.selectedEnvironment();
+    if (env) this.clearDraft(env.id);
+    this.saveError.set(null);
   }
 
   setAsActive(): void {
     const env = this.selectedEnvironment();
-    if (!env) {
+    if (!env || this.hasUnsavedChanges() || this.busy()) {
       return;
     }
     this.environmentSwitchService.activateEnvironment(env.id);
@@ -121,13 +103,15 @@ export class SettingsEnvironmentsComponent {
 
   async duplicateSelected(): Promise<void> {
     const env = this.selectedEnvironment();
-    if (!env) {
+    if (!env || this.busy()) {
       return;
     }
     const copy = this.environmentService.duplicateEnvironment(env.id);
     if (!copy) {
       return;
     }
+    this.busy.set(true);
+    this.saveError.set(null);
     try {
       const saved = await this.settingsService.persistEnvironment(copy);
       this.selectedEnvironmentId.set(saved.id);
@@ -137,19 +121,23 @@ export class SettingsEnvironmentsComponent {
         err instanceof Error ? err.message : 'Failed to save environment',
         'Environment'
       );
+    } finally {
+      this.busy.set(false);
     }
   }
 
   async deleteSelected(): Promise<void> {
     const env = this.selectedEnvironment();
-    if (!env || env.builtIn) {
+    if (!env || env.builtIn || this.busy()) {
       return;
     }
     if (!this.environmentService.deleteEnvironment(env.id)) {
       return;
     }
+    this.busy.set(true);
     try {
       await this.settingsService.deletePersonalEnvironment(env.id);
+      this.clearDraft(env.id);
       this.selectedEnvironmentId.set(this.activeEnvironmentId());
     } catch (err) {
       this.toastService.showError(
@@ -157,6 +145,8 @@ export class SettingsEnvironmentsComponent {
         'Environment'
       );
       await this.settingsService.reloadFromServer();
+    } finally {
+      this.busy.set(false);
     }
   }
 
@@ -165,24 +155,35 @@ export class SettingsEnvironmentsComponent {
     this.selectedEnvironmentId.set(this.activeEnvironmentId());
   }
 
-  private async persistEnvironment(updated: CqlEnvironment): Promise<void> {
-    if (updated.builtIn) {
+  async saveEnvironment(): Promise<void> {
+    const updated = this.editingEnvironment();
+    if (!updated || updated.builtIn || this.busy() || !this.hasUnsavedChanges()) {
       return;
     }
-    this.environmentService.updateEnvironment(updated);
-    this.editingEnvironment.set(this.cloneEnvironment(updated));
-    try {
-      const saved = await this.settingsService.persistEnvironment(updated);
-      this.editingEnvironment.set(this.cloneEnvironment(saved));
-      if (this.selectedEnvironmentId() === updated.id || !this.selectedEnvironmentId()) {
-        this.selectedEnvironmentId.set(saved.id);
-      }
-    } catch (err) {
-      this.toastService.showError(
-        err instanceof Error ? err.message : 'Failed to save environment',
-        'Environment'
-      );
+    if (!updated.name.trim()) {
+      this.saveError.set('Enter an environment name.');
+      return;
     }
+    this.busy.set(true);
+    this.saveError.set(null);
+    try {
+      const saved = await this.settingsService.persistEnvironment({ ...updated, name: updated.name.trim() });
+      this.clearDraft(updated.id);
+      this.selectedEnvironmentId.set(saved.id);
+      this.toastService.showSuccess('Environment saved.', 'Environment');
+    } catch (err) {
+      this.saveError.set(err instanceof Error ? err.message : 'Failed to save environment');
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  private clearDraft(id: string): void {
+    this.drafts.update(drafts => {
+      const remaining = { ...drafts };
+      delete remaining[id];
+      return remaining;
+    });
   }
 
   private cloneEnvironment(env: CqlEnvironment): CqlEnvironment {

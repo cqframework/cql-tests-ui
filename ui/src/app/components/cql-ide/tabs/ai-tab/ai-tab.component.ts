@@ -350,7 +350,7 @@ export class AiTabComponent implements OnInit, OnDestroy {
       ollamaModel: this.settingsService.getEffectiveOllamaModel(),
       activeLibrary: { ...this.snapshot(active), cqlContent },
       dependencies: await this.collectDependencies(active, cqlContent),
-      environment: this.settingsService.getActiveEnvironment(),
+      environment: this.settingsService.getEffectiveActiveEnvironment(),
       toolContext: {
         vsacFhirBaseUrl: this.settingsService.getEffectiveVsacFhirBaseUrl(),
         vsacApiUsername: this.settingsService.getEffectiveVsacApiUsername(),
