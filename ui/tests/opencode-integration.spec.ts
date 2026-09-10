@@ -338,8 +338,8 @@ test.describe('OpenCode browser integration', () => {
     await page.locator('#new-library-title-input').fill('BrowserOpenCode');
     await page.locator('#new-library-modal-submit').click();
 
-    await expect(page.getByRole('button', { name: 'Start OpenCode' })).toBeVisible();
-    await page.getByRole('button', { name: 'Start OpenCode' }).click();
+    await expect(page.getByRole('button', { name: 'Start AI Session' })).toBeVisible();
+    await page.getByRole('button', { name: 'Start AI Session' }).click();
     await expect(page.getByText('qwen3.8:27b-mlx')).toBeVisible();
     await expect(page.getByText('Validate CQL', { exact: true })).toBeVisible();
     await expect(page.getByText('Review terminology too?')).toBeVisible();

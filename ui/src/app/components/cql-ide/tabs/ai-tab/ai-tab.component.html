@@ -65,7 +65,7 @@
       <button type="button" class="btn btn-primary" [disabled]="!canStart()" (click)="startSession()">
         @if (status() === 'starting') { <span class="spinner-border spinner-border-sm me-2"></span> }
         @else { <i class="bi bi-play-fill me-1"></i> }
-        Start OpenCode
+        Start AI Session
       </button>
       <button type="button" class="btn btn-outline-primary" [disabled]="!activeLibrary()" (click)="openResumePicker()">
         <i class="bi bi-clock-history me-1"></i>Resume saved session
