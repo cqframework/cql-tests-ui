@@ -23,9 +23,9 @@
     "prisma:migrate": "npm run prisma:migrate --workspace=@cql-studio/server",
     "prisma:generate": "npm run prisma:generate --workspace=@cql-studio/server",
     "prisma:deploy": "npm run prisma:deploy --workspace=@cql-studio/server",
-    "docker:up": "docker compose -f docker/docker-compose.development.yml up -d --pull always --remove-orphans",
+    "docker:up": "docker compose -f docker/docker-compose.development.yml up -d --wait --pull always --remove-orphans",
     "docker:down": "docker compose -f docker/docker-compose.development.yml down",
-    "docker:up:full": "docker compose -f docker/docker-compose.full.yml up -d --build --pull missing --remove-orphans",
+    "docker:up:full": "docker compose -f docker/docker-compose.full.yml up -d --wait --build --pull missing --remove-orphans",
     "docker:down:full": "docker compose -f docker/docker-compose.full.yml down",
     "diagram": "command -v plantuml >/dev/null 2>&1 && plantuml -tpng doc/*.puml || echo 'plantuml not found on PATH; install PlantUML to render doc/*.puml'",
     "test": "npm run test --workspaces --if-present"

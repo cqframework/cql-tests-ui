@@ -24,6 +24,12 @@ export interface ServerEnv {
   /** Public origin of the CQL Studio UI (no trailing slash). Used for post-login redirects. */
   uiBaseUrl: string;
   ssoIssuerUrl: string;
+  /**
+   * Optional browser-facing IdP origin (no path). When set, login redirects rewrite the
+   * discovered authorization_endpoint origin so the host browser can reach Authentik
+   * while the server still discovers/token-exchanges via ssoIssuerUrl (e.g. Docker).
+   */
+  ssoAuthorizationBaseUrl?: string;
   ssoClientId: string;
   ssoClientSecret: string;
   /** Previous OIDC client secrets accepted during rotation (token exchange fallback). */
@@ -102,6 +108,25 @@ export function loadEnv(): ServerEnv {
     'CQL_STUDIO_SERVER_SSO_ISSUER_URL',
     process.env.CQL_STUDIO_SERVER_SSO_ISSUER_URL
   );
+  const ssoAuthorizationBaseUrlRaw =
+    process.env.CQL_STUDIO_SERVER_SSO_AUTHORIZATION_BASE_URL?.trim();
+  let ssoAuthorizationBaseUrl: string | undefined;
+  if (ssoAuthorizationBaseUrlRaw) {
+    let parsed: URL;
+    try {
+      parsed = new URL(ssoAuthorizationBaseUrlRaw);
+    } catch {
+      throw new Error(
+        'CQL_STUDIO_SERVER_SSO_AUTHORIZATION_BASE_URL must be an absolute URL origin (e.g. http://localhost:9000)'
+      );
+    }
+    if (parsed.pathname !== '/' || parsed.search || parsed.hash) {
+      throw new Error(
+        'CQL_STUDIO_SERVER_SSO_AUTHORIZATION_BASE_URL must be an origin only (no path, query, or hash)'
+      );
+    }
+    ssoAuthorizationBaseUrl = parsed.origin;
+  }
   const databaseUrl = required(
     'CQL_STUDIO_SERVER_DATABASE_URL',
     process.env.CQL_STUDIO_SERVER_DATABASE_URL
@@ -133,6 +158,11 @@ export function loadEnv(): ServerEnv {
   if (ssoIssuerUrl.startsWith('http://') && nodeEnv !== 'development') {
     throw new Error(
       'HTTP SSO issuer URLs are only allowed when CQL_STUDIO_SERVER_NODE_ENV=development'
+    );
+  }
+  if (ssoAuthorizationBaseUrl?.startsWith('http://') && nodeEnv !== 'development') {
+    throw new Error(
+      'HTTP SSO authorization base URLs are only allowed when CQL_STUDIO_SERVER_NODE_ENV=development'
     );
   }
 
@@ -169,6 +199,7 @@ export function loadEnv(): ServerEnv {
     corsOrigin,
     uiBaseUrl,
     ssoIssuerUrl,
+    ssoAuthorizationBaseUrl,
     ssoClientId: required(
       'CQL_STUDIO_SERVER_SSO_CLIENT_ID',
       process.env.CQL_STUDIO_SERVER_SSO_CLIENT_ID

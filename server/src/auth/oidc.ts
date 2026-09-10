@@ -19,20 +19,34 @@ function discoveryOptionsForIssuer(
   return { execute: [client.allowInsecureRequests] };
 }
 
-function wrapOidcDiscoveryError(err: unknown, issuerUrl: string): Error {
+export function wrapOidcDiscoveryError(err: unknown, issuerUrl: string): Error {
   const message = err instanceof Error ? err.message : String(err);
-  const cause = err instanceof Error && err.cause instanceof Error ? err.cause.message : '';
-  const detail = cause || message;
+  const code =
+    err && typeof err === 'object' && 'code' in err && typeof err.code === 'string'
+      ? err.code
+      : undefined;
+  const responseCause =
+    err instanceof Error && err.cause instanceof Response ? err.cause : undefined;
+  const errorCause =
+    err instanceof Error && err.cause instanceof Error ? err.cause.message : '';
+  const detail = errorCause || message;
   const unreachable =
     message === 'fetch failed' ||
     /ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|connect/i.test(detail);
   if (unreachable) {
     const dockerHint =
       issuerUrl.includes('localhost') || issuerUrl.includes('127.0.0.1')
-        ? ' If cql-studio-server runs inside Docker, localhost is the container — use host.docker.internal (Docker Desktop) or the compose service name authentik-server on a shared network instead.'
+        ? ' If cql-studio-server runs inside Docker, localhost is the container — use the compose service name authentik-server for CQL_STUDIO_SERVER_SSO_ISSUER_URL and set CQL_STUDIO_SERVER_SSO_AUTHORIZATION_BASE_URL=http://localhost:9000 for browser redirects.'
         : '';
     return new Error(
       `Cannot reach SSO issuer at ${issuerUrl}. Start the development IdP stack (docker compose -f docker-compose.development.yml up -d) or fix the issuer URL for this runtime.${dockerHint} (${detail})`
+    );
+  }
+  if (code === 'OAUTH_RESPONSE_IS_NOT_CONFORM' || /unexpected HTTP response status code/i.test(message)) {
+    const status = responseCause?.status;
+    const statusPart = status != null ? `HTTP ${status}` : message;
+    return new Error(
+      `SSO issuer discovery failed for ${issuerUrl} (${statusPart}). If Authentik just started, wait until the cql-studio OIDC application blueprint has applied, then retry Sign In.`
     );
   }
   return err instanceof Error ? err : new Error(message);
@@ -107,6 +121,24 @@ function isLikelyClientAuthError(err: unknown): boolean {
 
 export function clearOidcConfigCache(): void {
   configBySecret.clear();
+}
+
+/**
+ * Rewrite the authorization URL origin for browser redirects when discovery used a
+ * container-only host (e.g. authentik-server / host.docker.internal).
+ */
+export function rewriteAuthorizationUrlForBrowser(
+  authorizationUrl: URL,
+  authorizationBaseUrl: string | undefined
+): URL {
+  if (!authorizationBaseUrl) {
+    return authorizationUrl;
+  }
+  const browserOrigin = new URL(authorizationBaseUrl);
+  const rewritten = new URL(authorizationUrl.href);
+  rewritten.protocol = browserOrigin.protocol;
+  rewritten.host = browserOrigin.host;
+  return rewritten;
 }
 
 export { client as oidcClient };

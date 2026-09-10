@@ -9,6 +9,7 @@ import {
   authorizationCodeGrantWithSecretRotation,
   getOidcConfig,
   oidcClient,
+  rewriteAuthorizationUrlForBrowser,
 } from './oidc.js';
 import { hmacSign, hmacVerify } from './hmac.js';
 import {
@@ -107,14 +108,17 @@ export function createAuthRouter(env: ServerEnv): Router {
         maxAge: 10 * 60 * 1000,
       });
 
-      const redirectTo = oidcClient.buildAuthorizationUrl(config, {
-        redirect_uri: env.ssoRedirectUrl,
-        scope: env.ssoScopes,
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256',
-        state,
-        nonce,
-      });
+      const redirectTo = rewriteAuthorizationUrlForBrowser(
+        oidcClient.buildAuthorizationUrl(config, {
+          redirect_uri: env.ssoRedirectUrl,
+          scope: env.ssoScopes,
+          code_challenge: codeChallenge,
+          code_challenge_method: 'S256',
+          state,
+          nonce,
+        }),
+        env.ssoAuthorizationBaseUrl
+      );
       res.redirect(redirectTo.href);
     })
   );

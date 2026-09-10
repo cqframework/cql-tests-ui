@@ -93,6 +93,19 @@ services:
     volumes:
       - authentik-data:/data
     shm_size: 512mb
+    # Ready only after the cql-studio OIDC app exists (applied by authentik-worker blueprints).
+    healthcheck:
+      interval: 10s
+      retries: 30
+      start_period: 60s
+      timeout: 5s
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/application/o/cql-studio/.well-known/openid-configuration')",
+        ]
     restart: unless-stopped
 
   authentik-worker:

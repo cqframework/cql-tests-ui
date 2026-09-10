@@ -7,7 +7,7 @@ import { OpenCodeToolExecutor } from '../src/opencode/tools.js';
 const live = process.env.OPENCODE_LIVE_TESTS === '1';
 
 test('live Ollama model responds through its OpenAI-compatible endpoint', { skip: !live, timeout: 300_000 }, async () => {
-  const base = (process.env.OPENCODE_LIVE_OLLAMA_URL || 'http://theperfect.crabdance.com:11434').replace(/\/+$/, '');
+  const base = (process.env.OPENCODE_LIVE_OLLAMA_URL || 'http://localhost:11434').replace(/\/+$/, '');
   const model = process.env.OPENCODE_LIVE_OLLAMA_MODEL || 'qwen3.8:27b-mlx';
   const tags = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(30_000) });
   assert.equal(tags.ok, true, `Ollama tags returned ${tags.status}`);

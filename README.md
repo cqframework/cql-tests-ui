@@ -85,7 +85,7 @@ variables still fall back to the shell environment. To use a remote Ollama
 instance, update the UI file, for example:
 
 ```bash
-CQL_STUDIO_OLLAMA_BASE_URL=http://theperfect.crabdance.com:11434/
+CQL_STUDIO_OLLAMA_BASE_URL=http://<your_ollama_host>:11434/
 ```
 
 ### 3. Install Dependencies & Build Core
@@ -163,7 +163,8 @@ Server configuration uses the `CQL_STUDIO_SERVER_*` prefix:
 | `CQL_STUDIO_SERVER_CORS_ORIGIN` | Yes | `http://localhost:4200` | Allowed CORS origins for the webapp |
 | `CQL_STUDIO_SERVER_LOG_LEVEL` | No | `info` | Pino log level (`fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`) |
 | `CQL_STUDIO_SERVER_DATABASE_URL` | Yes | `postgresql://cql_studio:password@localhost:5432/cql_studio_development` | PostgreSQL database connection URL |
-| `CQL_STUDIO_SERVER_SSO_ISSUER_URL` | Yes | `http://localhost:9000/application/o/cql-studio/` | OIDC SSO Issuer URL |
+| `CQL_STUDIO_SERVER_SSO_ISSUER_URL` | Yes | `http://localhost:9000/application/o/cql-studio/` | OIDC SSO Issuer URL (server discovery & token exchange) |
+| `CQL_STUDIO_SERVER_SSO_AUTHORIZATION_BASE_URL` | No | _(unset)_ | Browser-facing IdP origin when issuer URL is container-only (e.g. `http://localhost:9000` with full Docker stack) |
 | `CQL_STUDIO_SERVER_SSO_CLIENT_ID` | Yes | `cql-studio-development` | OIDC Client ID |
 | `CQL_STUDIO_SERVER_SSO_CLIENT_SECRET` | Yes | `cql-studio-development-secret` | OIDC Client Secret |
 | `CQL_STUDIO_SERVER_SSO_REDIRECT_URL` | Yes | `http://localhost:3003/api/auth/callback` | OIDC BFF Callback URL |

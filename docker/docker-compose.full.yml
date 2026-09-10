@@ -38,7 +38,7 @@ services:
       cql-studio-server-postgresql:
         condition: service_healthy
       authentik-server:
-        condition: service_started
+        condition: service_healthy
       cql-studio-opencode:
         condition: service_healthy
     ports:
@@ -50,7 +50,9 @@ services:
       CQL_STUDIO_SERVER_CORS_ORIGIN: http://localhost:4200
       CQL_STUDIO_SERVER_UI_BASE_URL: http://localhost:4200
       CQL_STUDIO_SERVER_DATABASE_URL: postgresql://cql_studio:password@cql-studio-server-postgresql:5432/cql_studio_development
-      CQL_STUDIO_SERVER_SSO_ISSUER_URL: http://host.docker.internal:9000/application/o/cql-studio/
+      # Back-channel discovery/token via compose DNS; browser authorize via localhost.
+      CQL_STUDIO_SERVER_SSO_ISSUER_URL: http://authentik-server:9000/application/o/cql-studio/
+      CQL_STUDIO_SERVER_SSO_AUTHORIZATION_BASE_URL: http://localhost:9000
       CQL_STUDIO_SERVER_SSO_CLIENT_ID: cql-studio-development
       CQL_STUDIO_SERVER_SSO_CLIENT_SECRET: cql-studio-development-secret
       CQL_STUDIO_SERVER_SSO_REDIRECT_URL: http://localhost:3003/api/auth/callback
@@ -65,8 +67,6 @@ services:
       CQL_STUDIO_SERVER_OPENCODE_MAX_SESSIONS_PER_USER: "0"
       CQL_STUDIO_SERVER_OPENCODE_MAX_SESSIONS_GLOBAL: "0"
       CQL_STUDIO_SERVER_CQL_ASSETS_URL: http://localhost:4200/cql
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   cql-studio-ui:
